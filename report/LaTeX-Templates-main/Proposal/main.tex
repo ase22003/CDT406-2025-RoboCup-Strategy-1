@@ -1,0 +1,39 @@
+\documentclass[times]{thesisMDU}
+\usepackage[british,style=iso]{datetime2}  
+\usepackage[pdfusetitle, allcolors=black, hidelinks, pdftex]{hyperref} 
+
+% MASTER THESIS TEMPLATE MODIFIED FOR PROPOSAL BY HENRIK.FALK@MDH.SE
+
+\fancyHeader{Short Preliminary Title}{Authors Name1, Name2, Name3, Name4}
+
+\university{Mälardalen University}
+
+\department{School of Innovation Design and Engineering\\ Västerås, Sweden}
+
+\subject{Master Thesis Proposal \\ Course Code: XXX000}
+\thesisTitle{Preliminary Title For The Thesis}
+
+\addAuthor{Student One}{student.one@student.mdu.se}
+\addAuthor{Student Two}{student.two@student.mdu.se}
+
+\addSupervisor{Examiner}{First Lastname}{Mälardalen University, Västerås}
+\addSupervisor{Supervisor}{First Lastname}{Mälardalen University, Västerås}
+\addSupervisor{Supervisor}{First Lastname}{Company Name, City}
+
+
+\theDate{\today} 
+
+\begin{document}
+\titlePage
+
+\mainmatter
+% ===== Content: Modify the structure according to your needs =======
+\input{sections/proposal}
+
+% ============================= References ============================
+\newpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+\addcontentsline{toc}{section}{References}
+
+\end{document}

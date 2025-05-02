@@ -16,12 +16,12 @@ utilized, where the result of an action taken in a state is rewarded or penalize
 depending on the outcome. After a training iteration it writes its Q-values to a Q-table,
 where the values represent the best known expected reward for taking a given action in
 a given state. It updates the table using the Temporal Difference rule:
-(ADD FORMATTED EQUATION HERE). For each state, the agent can either choose to
-explore or to exploit. Using the Epsilon-Greedy Policy (Epsilon-greedy policy), the agent
+\(Q(S, A) \leftarrow Q(S, A) + \alpha \left( R + \gamma Q(S', A') - Q(S, A) \right)\). For each state, the agent can either choose to
+explore or to exploit. Using the Epsilon-Greedy Policy (\(\epsilon\)-greedy policy), the agent
 decides whether to take the best current known action (exploit), where the agent picks
-the best action with the highest Q-value based on the probability of 1-ε. Else it will try to
+the best action with the highest Q-value based on the probability of \(1-\epsilon\). Else it will try to
 find a new best possible action (explore), where the probability to explore is based
-simply on the ε-value. This is what allows the model to independently over time find the
+simply on the \(\epsilon\)-value. This is what allows the model to independently over time find the
 best possible outcomes for each state. Hej
 
 

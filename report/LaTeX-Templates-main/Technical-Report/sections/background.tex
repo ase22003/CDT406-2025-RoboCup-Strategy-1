@@ -25,4 +25,13 @@ simply on the ε-value. This is what allows the model to independently over time
 best possible outcomes for each state. Hej
 
 
+Q-learning is a reinforcement learning algorithm used for leaning the value of actions in states according to some reward definition. Given a finite amount of actions and states, the algoritm can learn by experience the optimal action to take at each state to ensure the maximum total reward according to some time horizon.
+
+In 2013, Mnih [...] proposed a variant of Q-learning called Deep Q Network, in which a neural network is used to aproximate the optimal action-value function
+\begin{equation}
+    Q^*(s,a)=\underset \pi {\text{max}} \mathbb{E}\left[ r_i+\gamma r_{t+1}+\gamma^2 r_{t+2}+\cdots \,\middle|\, s_t=s,\,a_t=a,\,\pi \right]
+\end{equation}
+
+
+
 \textbf{Q-Learning}:

@@ -16,7 +16,7 @@ utilized, where the result of an action taken in a state is rewarded or penalize
 depending on the outcome. After a training iteration it writes its Q-values to a Q-table,
 where the values represent the best known expected reward for taking a given action in
 a given state. It updates the table using the Temporal Difference rule:
-Q(S,A)←Q(S,A)+α(R+γQ(S’,A’)–Q(S,A)). For each state, the agent can either choose to
+(ADD FORMATTED EQUATION HERE). For each state, the agent can either choose to
 explore or to exploit. Using the Epsilon-Greedy Policy (ε-greedy policy), the agent
 decides whether to take the best current known action (exploit), where the agent picks
 the best action with the highest Q-value based on the probability of 1-ε. Else it will try to

@@ -1,1 +1,28 @@
 \section{Background}
+
+\textbf{Autonomous Mobile Robots}:
+
+
+\textbf{Reinforcement Learning}:
+Reinforcement learning: According to Jacob Murel and Eda Kavlakoglu \cite{JacobMurel1RL}, reinforcement learning is a machine learning
+algorithm that is used to develop independent decision making in autonomous agents.
+Agents train by repeating similar tasks over a period of time or repetitions, where they
+learn independently through trial and error. A popular adaptation/version of the learning
+algorithm is Q-learning. According to GeeksForGeeks \cite{GeeksForGeeks1RL}, Q-learning is a model-free RL
+algorithm that is used for training independent agents to make the best decision
+possible in each possible situation. It learns through a trial and error system, where it
+interacts with the environment to find the best method. A state-action-reward system is
+utilized, where the result of an action taken in a state is rewarded or penalized
+depending on the outcome. After a training iteration it writes its Q-values to a Q-table,
+where the values represent the best known expected reward for taking a given action in
+a given state. It updates the table using the Temporal Difference rule:
+(ADD FORMATTED EQUATION HERE). For each state, the agent can either choose to
+explore or to exploit. Using the Epsilon-Greedy Policy (Epsilon-greedy policy), the agent
+decides whether to take the best current known action (exploit), where the agent picks
+the best action with the highest Q-value based on the probability of 1-ε. Else it will try to
+find a new best possible action (explore), where the probability to explore is based
+simply on the ε-value. This is what allows the model to independently over time find the
+best possible outcomes for each state. Hej
+
+
+\textbf{Q-Learning}:

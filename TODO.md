@@ -3,8 +3,6 @@
 ## Report
 
 - Add proper email-adresses
-
-**From Google document:**
 - Add background
 - Add Related works
     - an evolutionary fuzzy behaviour controller using genetic algorithm in robocup soccer game

@@ -1,7 +1,7 @@
 \section{Background}
 
-\textbf{Autonomous Mobile Robots}:
-According to Kate Brush \cite{KateBrush1Robots}, an (Autonomous) Mobile
+\subsection{Autonomous Mobile Robots}:
+According to Kate Brush\cite{KateBrush1Robots}, an (Autonomous) Mobile
 Robot is a robot that is capable of moving around and navigating through its
 surroundings with the help of for example software, sensors and cameras. The robots
 are mainly fitted with legs, wheels or tracks that are used to transport itself around, but
@@ -12,12 +12,12 @@ humans can not/should not be in.
 %sdf
 
 
-\textbf{Reinforcement Learning}:
-Reinforcement learning: According to Jacob Murel and Eda Kavlakoglu \cite{JacobMurel1RL}, reinforcement learning is a machine learning
+\subsection{Reinforcement Learning}:
+Reinforcement learning: According to Jacob Murel and Eda Kavlakoglu\cite{JacobMurel1RL}, reinforcement learning is a machine learning
 algorithm that is used to develop independent decision making in autonomous agents.
 Agents train by repeating similar tasks over a period of time or repetitions, where they
 learn independently through trial and error. A popular adaptation/version of the learning
-algorithm is Q-learning. According to GeeksForGeeks \cite{GeeksForGeeks1RL}, Q-learning is a model-free RL
+algorithm is Q-learning. According to GeeksForGeeks\cite{GeeksForGeeks1RL}, Q-learning is a model-free RL
 algorithm that is used for training independent agents to make the best decision
 possible in each possible situation. It learns through a trial and error system, where it
 interacts with the environment to find the best method. A state-action-reward system is
@@ -31,18 +31,15 @@ decides whether to take the best current known action (exploit), where the agent
 the best action with the highest Q-value based on the probability of \(1-\epsilon\). Else it will try to
 find a new best possible action (explore), where the probability to explore is based
 simply on the \(\epsilon\)-value. This is what allows the model to independently over time find the
-best possible outcomes for each state. 
-
+best possible outcomes for each state.
 
 Q-learning is a reinforcement learning algorithm used for leaning the value of actions in states according to some reward definition. Given a finite amount of actions and states, the algoritm can learn by experience the optimal action to take at each state to ensure the maximum total reward according to some time horizon.
 
-In 2013, Mnih [...] proposed a variant of Q-learning called Deep Q Network, in which a neural network is used to aproximate the optimal action-value function
+In 2013, Mnih\cite{DQN} proposed a variant of Q-learning called Deep Q Network, in which a neural network is used to aproximate the optimal action-value function
 \begin{equation}
     Q^*(s,a)=\underset \pi {\text{max}} \mathbb{E}\left[ r_i+\gamma r_{t+1}+\gamma^2 r_{t+2}+\cdots \,\middle|\, s_t=s,\,a_t=a,\,\pi \right]
 \end{equation}
 
-
-
-\textbf{Q-Learning}:
+\subsection{Other teams}:
 \subsection{Related work}
-The CMDragons \cite{CMDragons2015} team won all six games they played during the RoboCup 2015 competition. In this paper they describe how they used algorithms to divide their robots into defense and offense subteams to suit the state of the game. They switched between the amount of robots depending on parameters such as ball possession, field region and the aggressivness of the other team. In offense, they used algorithms to both estimate the most optimal place to move for robots without the ball as well as the best action for the robot in possession of the ball. In defensive situations, algorithms were used to evaluate the threats. Both first-level and second-level threats were computed in order to stop the robot with the ball to score directly and to stop threatening passing options. Using these methods, the CMDragons were able to win the competition without conceding a single goal.
+The CMDragons\cite{CMDragons2015} team won all six games they played during the RoboCup 2015 competition. In this paper they describe how they used algorithms to divide their robots into defense and offense subteams to suit the state of the game. They switched between the amount of robots depending on parameters such as ball possession, field region and the aggressivness of the other team. In offense, they used algorithms to both estimate the most optimal place to move for robots without the ball as well as the best action for the robot in possession of the ball. In defensive situations, algorithms were used to evaluate the threats. Both first-level and second-level threats were computed in order to stop the robot with the ball to score directly and to stop threatening passing options. Using these methods, the CMDragons were able to win the competition without conceding a single goal.

@@ -30,3 +30,6 @@ This layer's decisions are highly context-sensitive and reinforcement learning i
 \subsubsection{Skill}
 The skill layer handles the low-level physical execution of actions.
 This could be moving to a position, kicking (how hard) or dribbling. Commonly used control methods are PID and path planning, but reinforcement learning can also be used to improve fine motor control, adaptability, or performance in unpredictable situations.
+
+\subsection{Training}
+To prepare our agents for RoboCup SSL, we are currently exploring VMAS (Vectorized Multi-Agent Simulator) as our training environment. VMAS is a lightweight and very customizable simulator to prototype and train multi-agent behaviors. We can set up custom scenarios that simulate different game situations. We can then use it to train both the Tactic and Skill layer behaviors using RL algorithms. In each scenario, we define the agent's observations, actions, and reward signals to shape the behavior we want them to learn. VMAS also supports fast, parallelized simulation with GPU acceleration, which allows us to efficiently run many environments at once. At this stage, we are still experimenting with different training approaches. The goal is to eventually transfer the trained policies to a more realistic simulator like grSim, where we can evaluate their performance in a full game setting.

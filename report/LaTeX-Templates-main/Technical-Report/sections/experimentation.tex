@@ -36,10 +36,13 @@ To prepare our agents for RoboCup SSL, we are currently exploring VMAS (Vectoriz
 
 \subsection{Agent Architecture: Single vs Multi-Agent}
 
-At this stage, we are still exploring whether to model our AI system as a single-agent or a multi-agent architecture.
+There are two considered approaches herein when creating AI for multiple agents: single-agent or a multi-agent architecture.
 
 A \textbf{single-agent} approach would involve one central controller that receives the entire field state and outputs coordinated actions for all robots. This method simplifies coordination and is often easier to implement and train.
 
 A \textbf{multi-agent} approach would assign each robot its own agent, possibly with limited field knowledge. This approach is more realistic and can model decentralized behavior, but introduces complexity in coordination and learning stability.
 
 Our initial focus will likely lean toward the single-agent model to reduce complexity during development. However, we may transition to or experiment with a multi-agent setup depending on performance and scalability needs.
+
+%\subsection{Continuous action-spaces}
+%In the previous section on DQN, the loss function for the network is explained, wherein the action with the largest reward was chosen: \(\underset {a'} {\text{max}} Q(s',a';\theta^-_i)\). This -- as opposed to the case with soccer robots -- presumes the action space to be discrete, finite and meaningfully separate. This prompts a modification to the method suiting our needs. We therefore propose viewing the action space \(\mathcal{A}\) as  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

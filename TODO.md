@@ -1,10 +1,10 @@
 # To Be Done
 
-# VMAS
+## VMAS
 
 - Create robosoccer-like enviorment
 
-# RCSoccer
+## RCSoccer
 
 - Finish Julia interface
     - Integrate Trainer and Player interfaces

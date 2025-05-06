@@ -4,9 +4,12 @@ using Dates
 global mutex_command_send = IdDict{UDPSocket, ReentrantLock}()
 
 global socks_last_sent = Dict() #last time each socket (player) sent a command
-global COMMAND_UPDATE_DELAY = 0.11 #command-sending delay (seconds)
+const COMMAND_UPDATE_DELAY = 0.11 #command-sending delay (seconds)
 
-function Client(server::String="localhost", port::Int=6000) #initiate a client/socket (player)
+const PORT = 6000
+const VERSION=7
+
+function Client(server::String="localhost", port::Int=PORT) #initiate a client/socket (player)
     sock = UDPSocket()
     bind(sock, ip"127.0.0.1", 0)
     println("Connected to $server:$port")
@@ -16,7 +19,8 @@ function Client(server::String="localhost", port::Int=6000) #initiate a client/s
 end
 
 function send_command_primitive(sock::UDPSocket, message::String)
-	send(sock, ip"127.0.0.1", 6000, message)
+	send(sock, ip"127.0.0.1", PORT, message)
+	#println("\tSENT \"",message,'\"')
 end
 
 function get_sensordata(sock::UDPSocket)
@@ -54,11 +58,10 @@ end
 
 
 
-function main()
+function master()
 	players = ntuple(i->Client(), 6)
 	for player ∈ players
-		send_command(player, "(init Team_A)")
-		send_command(player, "(move 0 0)")
+		send_command(player, "(init Team_A (version $VERSION))")
 	end
 	
 	sleep(3)
@@ -75,4 +78,4 @@ function main()
 	end
 end
 
-main()
+master()

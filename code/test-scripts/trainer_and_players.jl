@@ -1,30 +1,14 @@
+#{{{PREAMBLE
 #{{{MODULES
 using Sockets
 #}}}
-
-#{{{UDP CONSTANTS
-const IP = ip"127.0.0.1"
-const PLAYER_PORT  = 6000
-const TRAINER_PORT = 6001
-const VERSION=7
-#}}}
-
-#{{{SERVER COMMUNICATION DELAYS
-const COMMAND_UPDATE_DELAY = 0.1 #command-sending delay (seconds)
-const UPDATE_DELAY_MARGIN = 0.0
-#}}}
-
-#{{{GLOBALS
-global mutex_command_send = IdDict{UDPSocket, ReentrantLock}()
-global server_trainer_data = IdDict{UDPSocket, String}()
-#}}}
-
-#{{{SOCCER CONSTANTS
-const NUMBER_OF_PLAYERS = 6
-#}}}
-
 #{{{STRUCTURES
-struct Coordinate
+struct DataKey
+	port::Int
+	sock::UDPSocket
+end
+#{{{FOOTBALL
+struct Point
 	x::Float16
 	y::Float16
 end
@@ -39,23 +23,70 @@ struct Player
 	info::Dict{String, Any} #roles are given by "role" herein
 end
 struct Team
-	teamname::String
+	name::String
 	players::Vector{Player}
 end
 #}}}
-
+#}}}
+#{{{STRUCTURES
+struct DataKey
+	port::Int
+	sock::UDPSocket
+end
+Base.:(==)(a::DataKey, b::DataKey) = a.id == b.id && a.socket === b.socket
+Base.hash(k::DataKey, h::UInt) = hash(k.id, h) ⊻ objectid(k.socket)
+#{{{FOOTBALL
+struct Point
+	x::Float16
+	y::Float16
+end
+struct Velocity
+	θ::Float16
+	v::Float16
+end
+struct Player
+	id::UInt8
+	position::Point
+	velocity::Velocity
+	info::Dict{String, Any} #roles are given by "role" herein
+end
+struct Team
+	name::String
+	players::Vector{Player}
+end
+#}}}
+#}}}
+#{{{UDP CONSTANTS
+const IP = ip"127.0.0.1"
+const PLAYER_PORT  = 6000
+const TRAINER_PORT = 6001
+const VERSION=7
+#}}}
+#{{{SERVER COMMUNICATION DELAYS
+const COMMAND_UPDATE_DELAY = 0.1 #command-sending delay (seconds)
+const UPDATE_DELAY_MARGIN = 0.0
+#}}}
+#{{{GLOBALS
+global mutex_command_send = IdDict{DataKey, ReentrantLock}()
+global server_trainer_data = IdDict{UDPSocket, String}()
+#}}}
+#{{{SOCCER CONSTANTS
+const NUMBER_OF_PLAYERS = 6
+#}}}
+#}}}
+#{{{FUNCTION DEFINITIONS
 #{{{UDP PRIMITIVE
-function Client(server::String="localhost", port::UInt16)::UDPSocket #initiate a client/socket (player)
+function Client(port::Int, server::String="localhost")::UDPSocket #initiate a client/socket (player)
     sock = UDPSocket()
     bind(sock, IP, 0)
     println("Connected to $server:$port")
-	socks_last_sent[sock] = Float64(0) #add player to dictionary
-	mutex_command_send[sock] = ReentrantLock()
-    return sock
+	mutex_command_send[DataKey(port,sock)] = ReentrantLock() #add client to mutex dictionary
+    sock
 end
 
-function send_command_primitive(port::UInt16, sock::UDPSocket, message::String)
+function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 	send(sock, IP, port, message)
+	#println("$port SENT \"$message\"!")
 end
 
 function get_data_primitive(sock::UDPSocket)::String
@@ -66,14 +97,14 @@ function die(sock::UDPSocket)
     close(sock)
 end
 #}}}
-
 #{{{CUSTOM COMMUNICATION PROTOCOLS
-function send_command(port::UInt16,sock::UDPSocket, message::String)
+function send_command(port::Int,sock::UDPSocket, message::String)
+	println("$port:\"$message\"")
 	Threads.@spawn begin
-		lock(mutex_command_send[sock])
+		lock(mutex_command_send[DataKey(port,sock)])
 		send_command_primitive(port,sock,message)
 		sleep(COMMAND_UPDATE_DELAY) #wait so as to not send commands at the same time
-		unlock(mutex_command_send[sock])
+		unlock(mutex_command_send[DataKey(port,sock)])
 	end
 end
 
@@ -113,7 +144,7 @@ function get_look_data(sock::UDPSocket)::String
 	get_saved_server_trainer_data(sock)
 end
 #}}}
-
+#{{{TEAM INITIATION FUNCTIONSK
 function create_player(id::UInt8)::Player
 	Player(
 		id,
@@ -123,131 +154,93 @@ function create_player(id::UInt8)::Player
 	)
 end
 
-function create_team(teamname::String)::Team
+function create_team(name::String)::Team
 	Team(
-		teamname,
-		Vector([create_player(Int8(i)) for i in 1:NUMBER_OF_PLAYERS])
+		name,
+		Vector([create_player(UInt8(i)) for i in 1:NUMBER_OF_PLAYERS])
 	)
 end
-
-
-
+#}}}
+#{{{MASTER
 function master()
-	#initiate trainer
-	trainer = Client()
-	start_data_update_loop(trainer)
-	send_command(TRAINER_PORT, trainer, "(init Team_A (version $VERSION))")
-	
-	#initiate players
-	players = ntuple(i->Client(), NUMBER_OF_PLAYERS*2)
-	for player ∈ players
-		send_command(PLAYER_PORT, player, "(init Team_A (version $VERSION))")
-	end
+	#define game
+	#begin
+		#define teams
+		#begin
+			teamnames = ("Team_A", "Team_B")
+			teams = Dict(
+				teamnames[1] => create_team(teamnames[1]),
+				teamnames[2] => create_team(teamnames[2])
+			)
 
-	#define teams
-	begin
-		teamnames = ("Team_A", "Team_B")
-		teams = Dict(
-			teamnames[1] => create_team(teamnames[1]),
-			teamnames[2] => create_team(teamnames[2])
-		)
+			#define players
+			#begin
+				players = ntuple(i->Client(PLAYER_PORT), NUMBER_OF_PLAYERS*2)
 	
-		#define goalies
-		for team ∈ teams
-			team.players[1].info["role"] = "goalie"
+				#define goalies
+				for name ∈ teamnames
+						teams[name].players[1].info["role"] = "goalie"
+				end
+			#end
+	
+			#define starting positions
+			starting_positions = (
+				(30,0), #goalie
+				(15,20),
+				(15,10),
+				(15,0), ######### ADD/DEFINE "KICKER" POSITION
+				(15,-10),
+				(15,-20)
+			)
+		#end
+	#end
+	
+	#initiate game
+	#begin
+		#initiate clients
+		#begin
+			#initiate trainers
+			trainer = Client(TRAINER_PORT) #####!!!!!!!
+			start_data_update_loop(trainer)
+			for name ∈ teamnames
+				send_command(TRAINER_PORT, trainer####!!!!!, "(init $name (version $VERSION))")
+			end
+			
+			#initiate players
+			for name ∈ teamnames
+				for id=1:NUMBER_OF_PLAYERS
+					send_command(PLAYER_PORT, player, "(init $name (version $VERSION))")
+				end
+			end
+		#end
+		
+		#move ball to the center of the field
+		send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+
+		#move players into their starting positions
+		inv = Int8(1)
+		for name ∈ teamnames
+			println(name)
+			for id=1:NUMBER_OF_PLAYERS
+					send_command(TRAINER_PORT, trainer#####!!!!!!!,
+	"(move (player $(teams[name].name) $(id)) $(inv*starting_positions[id][1]) $(starting_positions[id][2]))")
+			end
+			inv = -1
 		end
-	end
-	
-	#move ball to the center of the field
-	send_command(trainer, "(move (ball) 0 0)")
-	
-	#move players into position
-	for team ∈ teams
-		send_command(trainer, "(move (player $team 1) 10 0)")
-	end
-	
-	for i=1:20
-		send_command(trainer, "(look)")
-		println(get_sensordata(trainer))
-		sleep(1)
-	end
+	#end
 
-   	die(trainer)
-
-	sleep(3)
-	#send_command(trainer, "(move (GameObject (FieldObject (MobileObject (Ball)))) 10 10)")
-	send_command(trainer, "(move (ball) 0 0)")
-	send_command(trainer, "(move (player Team_A 1) 10 0)")
-	send_command(trainer, "(move (player Team_A 2) 10 10)")
-	send_command(trainer, "(move (player Team_A 3) 10 20)")
-	send_command(trainer, "(move (player Team_A 4) 10 30)")
-	send_command(trainer, "(move (player Team_A 5) 10 -10)")
-	send_command(trainer, "(move (player Team_A 6) 10 -20)")
-	send_command(trainer, "(change_mode play_on)")
-
-	for i=1:15
-		println("LOOK: ",look(trainer))
-		sleep(1.5)
-	end
-	
-   	die(trainer)
-end
-
-master()
-
-
-function master()
-	
-	sleep(3)
-	for i in 1:100
-		for player ∈ players
-			send_command(player, "(dash 100)")
-			send_command(player, "(turn 10)")
-		end
-    end
-	
+	#run game
+	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
 	sleep(10)
+
+	#kill game
 	for player ∈ players
     	die(player)
 	end
-end
-
-master()
-
-
-global socks_last_sent = Dict() #last time each socket (player) sent a command
-global COMMAND_UPDATE_DELAY = 0.11 #command-sending delay (seconds)
-
-
-
-
-function send_command(sock::UDPSocket, message::String)
-	Threads.@spawn begin
-		lock(mutex_command_send[sock])
-		send_command_primitive(sock,message)
-		sleep(COMMAND_UPDATE_DELAY) #wait so as to not send commands at the same time
-		unlock(mutex_command_send[sock])
-	end
-end
-
-
-
-
-function main()
-	trainer = Client()
-
-	send_command(trainer, "(init A (verion 15))")
-	sleep(1)
-	send_command(trainer, "(change_mode play_on)")
-
-	for i=1:20
-		send_command(trainer, "(look)")
-		println(get_sensordata(trainer))
-		sleep(1)
-	end
-
    	die(trainer)
 end
-
-main()
-
+#}}}
+#}}}
+#{{{PROGRAM
+master()
+#}}}

@@ -7,32 +7,6 @@ struct DataKey
 	port::Int
 	sock::UDPSocket
 end
-#{{{FOOTBALL
-struct Point
-	x::Float16
-	y::Float16
-end
-struct Velocity
-	θ::Float16
-	v::Float16
-end
-struct Player
-	id::UInt8
-	position::Point
-	velocity::Velocity
-	info::Dict{String, Any} #roles are given by "role" herein
-end
-struct Team
-	name::String
-	players::Vector{Player}
-end
-#}}}
-#}}}
-#{{{STRUCTURES
-struct DataKey
-	port::Int
-	sock::UDPSocket
-end
 Base.:(==)(a::DataKey, b::DataKey) = a.id == b.id && a.socket === b.socket
 Base.hash(k::DataKey, h::UInt) = hash(k.id, h) ⊻ objectid(k.socket)
 #{{{FOOTBALL
@@ -86,7 +60,7 @@ end
 
 function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 	send(sock, IP, port, message)
-	#println("$port SENT \"$message\"!")
+	println("$port SENT \"$message\"!")
 end
 
 function get_data_primitive(sock::UDPSocket)::String
@@ -109,9 +83,10 @@ function send_command(port::Int,sock::UDPSocket, message::String)
 end
 
 function start_data_update_loop(sock::UDPSocket)
+	global server_trainer_data[sock] = "x x x"
 	Threads.@spawn begin
 		while true	
-			global server_trainer_data[sock] = get_data_primitive(sock) #POTENTIAL BUG
+			global server_trainer_data[sock] = get_data_primitive(sock)
 			println("\t\tUPDATED: $(server_trainer_data[sock])")
 			#sleep(COMMAND_UPDATE_DELAY-UPDATE_DELAY_MARGIN)
 		end
@@ -123,18 +98,18 @@ function get_saved_server_trainer_data(sock::UDPSocket)::String
 end
 
 function get_look_data_number(sock::UDPSocket)::UInt64
-	parse(UInt32,split(get_data(sock)," ")[3]) #(ok look NUM ((goal...
+	parse(UInt32,split(get_saved_server_trainer_data(sock)," ")[3]) #(ok look NUM ((goal...
 end
 
 function get_look_data(sock::UDPSocket)::String
 	firsttime::Bool = false
-	previous_look_number::UInt32 = 0
+	previous_look_number::UInt64 = 0
 	try
-		previous_look_number = look_number(sock)
+		previous_look_number = get_look_data_number(sock)
 	catch
 		firsttime = true
 	end
-	send_command(sock, "(look)")
+	send_command(TRAINER_PORT, sock, "(look)")
 	if firsttime
 		while split(get_saved_server_trainer_data(sock)," ")[2] != "look" sleep(0.01) end #wait until "look" from server after non-look message from server
 	else
@@ -144,7 +119,7 @@ function get_look_data(sock::UDPSocket)::String
 	get_saved_server_trainer_data(sock)
 end
 #}}}
-#{{{TEAM INITIATION FUNCTIONSK
+#{{{TEAM INITIATION FUNCTIONS
 function create_player(id::UInt8)::Player
 	Player(
 		id,
@@ -185,12 +160,12 @@ function master()
 	
 			#define starting positions
 			starting_positions = (
-				(30,0), #goalie
-				(15,20),
-				(15,10),
-				(15,0), ######### ADD/DEFINE "KICKER" POSITION
-				(15,-10),
-				(15,-20)
+				Point(30,0), #goalie
+				Point(15,20),
+				Point(15,10),
+				Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
+				Point(15,-10),
+				Point(15,-20)
 			)
 		#end
 	#end
@@ -200,47 +175,57 @@ function master()
 		#initiate clients
 		#begin
 			#initiate trainers
-			trainer = Client(TRAINER_PORT) #####!!!!!!!
-			start_data_update_loop(trainer)
-			for name ∈ teamnames
-				send_command(TRAINER_PORT, trainer####!!!!!, "(init $name (version $VERSION))")
+			trainers = (Client(TRAINER_PORT), Client(TRAINER_PORT))
+			
+			start_data_update_loop(trainers[1])
+			
+			for (i, name) ∈ enumerate(teamnames)
+				send_command(TRAINER_PORT, trainers[i], "(init $name (version $VERSION))")
 			end
+			
+			#for name ∈ teamnames
+			#	send_command(TRAINER_PORT, trainerB, "(init $name (version $VERSION))")
+			#end
 			
 			#initiate players
 			for name ∈ teamnames
 				for id=1:NUMBER_OF_PLAYERS
-					send_command(PLAYER_PORT, player, "(init $name (version $VERSION))")
+					send_command(PLAYER_PORT, players[id], "(init $name (version $VERSION))")
 				end
 			end
 		#end
 		
 		#move ball to the center of the field
-		send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+		send_command(TRAINER_PORT, trainers[1], "(move (ball) 0 5)")
 
 		#move players into their starting positions
 		inv = Int8(1)
-		for name ∈ teamnames
-			println(name)
-			for id=1:NUMBER_OF_PLAYERS
-					send_command(TRAINER_PORT, trainer#####!!!!!!!,
-	"(move (player $(teams[name].name) $(id)) $(inv*starting_positions[id][1]) $(starting_positions[id][2]))")
+		for (i, name) ∈ enumerate(teamnames)
+			println("\t\t\t",name)
+			for id = 1:NUMBER_OF_PLAYERS
+					send_command(TRAINER_PORT, trainers[i],
+"(move (player $(teams[name].name) $(id)) $(inv*starting_positions[id].x) $(starting_positions[id].y))")
+					println("DATA: ",get_look_data(trainers[1]))
 			end
 			inv = -1
 		end
 	#end
 
 	#run game
-	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	send_command(TRAINER_PORT, trainers[1], "(change_mode play_on)")
 	sleep(10)
 
 	#kill game
 	for player ∈ players
     	die(player)
 	end
-   	die(trainer)
+	for trainer ∈ trainers
+		die(trainer)
+	end
 end
 #}}}
 #}}}
 #{{{PROGRAM
 master()
+#}}}
 #}}}

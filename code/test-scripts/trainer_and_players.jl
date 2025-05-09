@@ -26,11 +26,13 @@ end
 struct Player
 	id::UInt8
 	port::UDPSocket
+	name::String #team name
 	physical::Physical
 	info::Dict{String, Any} #roles are given by "role" herein
 end
 struct Team
 	name::String
+	side::Symbol
 	players::Vector{Player}
 end
 #}}}
@@ -52,6 +54,11 @@ global field_state = Dict{String, Any}() #team 1, team 2, ball
 #}}}
 #{{{SOCCER CONSTANTS
 const NUMBER_OF_PLAYERS = 6
+
+#define goal positions
+field_state["goal"] = Dict{Symbol, Point}()
+field_state["goal"][:RIGHT] = Point(52.5, 0)
+field_state["goal"][:LEFT]  = Point(-52.5, 0)
 #}}}
 #}}}
 #{{{FUNCTION DEFINITIONS
@@ -66,11 +73,13 @@ end
 
 function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 	send(sock, IP, port, message)
-	println("$port SENT \"$message\"!")
+	println("$port SENT \"$message\"")
 end
 
 function get_data_primitive(sock::UDPSocket)::String
-	String(recv(sock))
+	s=String(recv(sock))
+	println("$port GOT \"$s\"")
+	s
 end
 
 function die(sock::UDPSocket)
@@ -79,7 +88,7 @@ end
 #}}}
 #{{{CUSTOM COMMUNICATION PROTOCOLS
 function send_command(port::Int,sock::UDPSocket, message::String)
-	println("$port:\"$message\"")
+	#println("$port:\"$message\"")
 	Threads.@spawn begin
 		lock(mutex_command_send[DataKey(port,sock)])
 		send_command_primitive(port,sock,message)
@@ -89,18 +98,19 @@ function send_command(port::Int,sock::UDPSocket, message::String)
 end
 
 function start_data_update_loop(sock::UDPSocket)
-	global server_trainer_data[sock] = "x x x"
 	Threads.@spawn begin
 		while true
 			send_command(TRAINER_PORT, sock, "(look)")
-			look_data_parse(get_data_primitive(sock))
-			println("\t\tUPDATED: $(server_trainer_data[sock])")
+			#look_data_parse(get_data_primitive(sock))
+			d = get_data_primitive(sock)
+			look_data_parse(d)
+			println("\t\tUPDATED: $(field_state)")
 			#sleep(COMMAND_UPDATE_DELAY-UPDATE_DELAY_MARGIN)
 		end
 	end
 end
-
-function look_data_parse(raw::String, teams::Tuple{Team, Team})
+#{{{PARSE DATA
+function look_data_parse(raw::String)
 	raw = filter(!isempty, split(raw,('(',')',' ')))
 	len = length(raw)
 	if len < 2
@@ -111,6 +121,7 @@ function look_data_parse(raw::String, teams::Tuple{Team, Team})
 	end
 	i = 1
 	while true
+		println("parsing... $(raw[i])")
 		if i > len
 			return
 		end
@@ -123,9 +134,10 @@ function look_data_parse(raw::String, teams::Tuple{Team, Team})
 						 	   parse(Float16, raw[i+1])),
 						  Velocity(
 								   parse(Float16, raw[i+2]),
-						  		   parse(Float16, raw[i+3])))
+						  		   parse(Float16, raw[i+3])),
+						  Float16(0))
 			i+=4
-		else if raw[i] == "player"
+		elseif raw[i] == "player"
 			global field_state[raw[i+1]].players[raw[i+2]].physical.position.x  = parse(Float16, raw[i+3])
 			global field_state[raw[i+1]].players[raw[i+2]].physical.position.y  = parse(Float16, raw[i+4])
 			global field_state[raw[i+1]].players[raw[i+2]].physical.velocity.dx = parse(Float16, raw[i+6])
@@ -137,64 +149,47 @@ function look_data_parse(raw::String, teams::Tuple{Team, Team})
 		end
 	end
 end
-
-function get_saved_server_trainer_data(sock::UDPSocket)::String
-	server_trainer_data[sock] * " a a a a"
-end
-
-function get_look_data_number(sock::UDPSocket)::UInt64
-	try
-		parse(UInt64, split(get_saved_server_trainer_data(sock)," ")[3])+1 #(ok look NUM ((goal...
-	catch
-		UInt64(0)
-	end
-end
-
-function get_look_data(sock::UDPSocket)::String
-	firsttime::Bool = false
-	previous_look_number::UInt64 = 0
-	try
-		previous_look_number = get_look_data_number(sock)
-	catch
-		firsttime = true
-	end
-	send_command(TRAINER_PORT, sock, "(look)")
-	if firsttime
-		while split(get_saved_server_trainer_data(sock)," ")[2] != "look" sleep(0.01) end #wait until "look" from server after non-look message from server
-	else
-		while previous_look_number == get_look_data_number(sock) sleep(0.01) end #wait until the next "look" from the server
-	end
-	
-	get_saved_server_trainer_data(sock)
-end
+#}}}
 #}}}
 #{{{TEAM INITIATION FUNCTIONS
 function create_player(id::UInt8, name::String)::Player
 	port=Client(PLAYER_PORT)
 	send_command(PLAYER_PORT, port, "(init $name (version $VERSION))")
-	info = Dict() if id == 1 #the first player is always the goalie
+	info = Dict(); if id == 1 #the first player is always the goalie
 		info["role"] = "goalie"
 	end
 	Player(
 		id,
 		port,
-		Physical(Point(0, 0), Velocity(0, 0)),
+		name,
+		Physical(Point(0, 0), Velocity(0, 0), 0),
 		info
 	)
 end
 
-function create_team(name::String)::Team
+function create_team(name::String, side::Symbol)::Team
 	Team(
 		name,
+		side,
 		Vector([create_player(UInt8(i), name) for i in 1:NUMBER_OF_PLAYERS])
 	)
 end
 #}}}
 #{{{LOW LEVEL SKILLS
-function PLAYER_goto(player::Player, position::Point)
-	Thread.@spawn begin
-		while
+function PLAYER_goto(player::Player, position::Point, margin::Float16)
+	Threads.@spawn begin
+		while abs(player.physical.position.x - position.x) > margin
+			  abs(player.physical.position.y - position.y) > margin
+			
+			θ = deg(atan2(position.y - player.physical.y, position.x - player.physical.x))
+			if mod(player.physical.angle - θ + 180, 360) - 180 > 10
+				send_command(PLAYER_PORT, player.port, "(turn $θ)")
+			end
+			send_command(PLAYER_PORT, player.port, "(dash 100)")
+			sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN)
+		end
 	end
+end
 #}}}
 #{{{MASTER
 function master()
@@ -203,8 +198,10 @@ function master()
 		#define teams
 		#begin
 			teamnames = ("Team_A", "Team_B")
-			teams = (create_team(teamnames[1]),
-					 create_team(teamnames[2]))
+			teams = (create_team(teamnames[1], :RIGHT),
+					 create_team(teamnames[2], :LEFT))
+			field_state[teamnames[1]] = teams[1]
+			field_state[teamnames[2]] = teams[2]
 	
 			#define starting positions
 			starting_positions = (
@@ -224,8 +221,6 @@ function master()
 		#begin
 			#initiate trainer
 			trainer = Client(TRAINER_PORT)
-			
-			start_data_update_loop(trainer)
 			send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
 		#end
 		
@@ -233,22 +228,27 @@ function master()
 		#send_command(TRAINER_PORT, trainer, "(move (ball) 0 5)")
 
 		#move players into their starting positions
-		side = Int8(1)
-		for team ∈ teams
-			for i = 1:NUMBER_OF_PLAYERS
-				PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y))
-			end
-			side = -1
-		end
+		#side = Int8(1)
+		#for team ∈ teams
+		#	for i = 1:NUMBER_OF_PLAYERS
+		#		PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), Float16(1))
+		#	end
+		#	side = -1
+		#end
 	#end
 
 	#run game
+	println(field_state)
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	PLAYER_goto(teams[1].players[1], Point(0, 0), Float16(1.0))
+	start_data_update_loop(trainer)
 	sleep(10)
 
 	#kill game
-	for player ∈ team.players
-    	die(player.port)
+	for team ∈ teams
+		for player ∈ team.players
+    		die(player.port)
+		end
 	end
 	die(trainer)
 end

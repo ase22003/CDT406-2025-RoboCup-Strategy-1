@@ -10,15 +10,15 @@ end
 Base.:(==)(a::DataKey, b::DataKey) = a.id == b.id && a.socket === b.socket
 Base.hash(k::DataKey, h::UInt) = hash(k.id, h) ⊻ objectid(k.socket)
 #{{{FOOTBALL
-struct Point
+mutable struct Point
 	x::Float16
 	y::Float16
 end
-struct Velocity
+mutable struct Velocity
 	dx::Float16
 	dy::Float16
 end
-struct Physical
+mutable struct Physical
 	position::Point
 	velocity::Velocity
 	angle::Float16
@@ -51,6 +51,7 @@ const UPDATE_DELAY_MARGIN = 0.0
 global mutex_command_send = IdDict{DataKey, ReentrantLock}()
 global server_trainer_data = "INIT EMPTY"
 global field_state = Dict{String, Any}() #team 1, team 2, ball
+global state_lock = ReentrantLock()
 global GLOBAL_TRAINER_SOCKET = UDPSocket()
 #}}}
 #{{{SOCCER CONSTANTS
@@ -78,9 +79,9 @@ function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 end
 
 function get_data_primitive(sock::UDPSocket)::String
-	println("@@@ WAITING... @@@")
+	#println("@@@ WAITING... @@@")
 	s=String(recv(sock))
-	println("GOT \"$s\"")
+	#println("GOT \"$s\"")
 	s
 end
 
@@ -101,13 +102,15 @@ end
 function start_data_update_loop(sock::UDPSocket)
 	Threads.@spawn begin
 		while true
-			println("look loop")
 			send_command_primitive(TRAINER_PORT, sock, "(look)")
-			sleep(COMMAND_UPDATE_DELAY+0.01)
-			data=get_data_primitive(sock)*" x x"
-			if split(data, " ")[2] == "look"
-				look_data_parse(data)
-				println("\t\tUPDATED: $(field_state)")
+			sleep(COMMAND_UPDATE_DELAY)
+			lock(state_lock) do
+				data = get_data_primitive(sock)*" x x"
+				if split(data, " ")[2] == "look"
+					look_data_parse(data)
+					#println("\t\tUPDATED: $(field_state)")
+					println("updated")
+				end
 			end
 		end
 	end
@@ -184,34 +187,34 @@ function look_data_parse(raw::String)
 	end
 	i = 1
 	while true
-		println("parsing... $(raw[i])")
 		if i > len
 			return
 		end
+		#println("parsing... $(raw[i])")
 
 		if raw[i] == "ball"
 			global field_state["ball"] = 
 				Physical(
 						 Point(
-							   parse(Float16, raw[i]),
-						 	   parse(Float16, raw[i+1])),
+							   parse(Float16, raw[i+1]),
+						 	   parse(Float16, raw[i+2])),
 						  Velocity(
-								   parse(Float16, raw[i+2]),
-						  		   parse(Float16, raw[i+3])),
+								   parse(Float16, raw[i+3]),
+						  		   parse(Float16, raw[i+4])),
 						  Float16(0))
-			i+=4
+			i+=5
 		elseif raw[i] == "player"
-			global field_state[raw[i+1]].players[raw[i+2]].physical.position.x  = parse(Float16, raw[i+3])
-			global field_state[raw[i+1]].players[raw[i+2]].physical.position.y  = parse(Float16, raw[i+4])
-			global field_state[raw[i+1]].players[raw[i+2]].physical.velocity.dx = parse(Float16, raw[i+6])
-			global field_state[raw[i+1]].players[raw[i+2]].physical.velocity.dy = parse(Float16, raw[i+5])
-			global field_state[raw[i+1]].players[raw[i+2]].physical.angle       = parse(Float16, raw[i+7])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.x  = parse(Float16, raw[i+3])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = parse(Float16, raw[i+4])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dx = parse(Float16, raw[i+6])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dy = parse(Float16, raw[i+7])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.angle       = parse(Float16, raw[i+5])
 			i+=9
 		else
 			i+=1
 		end
 	end
-	println("parse returning")
+	#println("parse returning")
 end
 #}}}
 #}}}
@@ -242,15 +245,50 @@ end
 #{{{LOW LEVEL SKILLS
 function PLAYER_goto(player::Player, position::Point, margin::Float16)
 	Threads.@spawn begin
-		while abs(player.physical.position.x - position.x) > margin
-			  abs(player.physical.position.y - position.y) > margin
-			
-			θ = deg(atan2(position.y - player.physical.y, position.x - player.physical.x))
-			if mod(player.physical.angle - θ + 180, 360) - 180 > 10
-				send_command(PLAYER_PORT, player.port, "(turn $θ)")
+		#while abs(player.physical.position.x - position.x) > margin
+		#	  abs(player.physical.position.y - position.y) > margin
+		while true
+			#println("READING ",field_state)
+			lock(state_lock) do
+
+				x = abs(player.physical.position.x - position.x)
+				y = abs(player.physical.position.y - position.y)
+				println(x, " ", y)
+				
+				println("goto loop")
+				θ = rad2deg(atan((position.y + player.physical.position.y), (position.x - player.physical.position.x)))
+				pangle = -player.physical.angle
+				println(θ)
+				println(pangle)
+				Δθ = mod(pangle - θ + 180, 360) - 180
+				println("Δθ = $Δθ")
+				if abs(Δθ) > 5
+					send_command(PLAYER_PORT, player.port, "(turn $(Δθ/2))")
+					sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN)
+				end
 			end
 			send_command(PLAYER_PORT, player.port, "(dash 100)")
 			sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN)
+			#=
+			println(field_state)
+			lock(state_lock) do
+
+			x = abs(field_state[physical.position.x - position.x)
+			y = abs(player.physical.position.y - position.y)
+			println(x, y)
+			
+			println("goto loop")
+			θ = rad2deg(atan(position.y - player.physical.position.y / position.x - player.physical.position.x))
+			println(θ)
+			println(player.physical.angle)
+			println(abs(mod(player.physical.angle - θ + 180, 360) - 180))
+			if abs(mod(player.physical.angle - θ + 180, 360) - 180) > 10
+				send_command(PLAYER_PORT, player.port, "(turn $θ)")
+			end
+	end
+			send_command(PLAYER_PORT, player.port, "(dash 100)")
+			sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN)
+			=#
 		end
 	end
 end
@@ -307,12 +345,28 @@ function master()
 
 	#run game
 	#println(field_state)
-	#PLAYER_goto(teams[1].players[1], Point(0, 0), Float16(1.0))
+	#=sleep(1)
+	send_command_primitive(TRAINER_PORT, trainer, "(look)")
 	sleep(1)
+	data=get_data_primitive(trainer)
+	sleep(1)
+	send_command_primitive(TRAINER_PORT, trainer, "(look)")
+	sleep(1)
+	data=get_data_primitive(trainer)
+	sleep(1)
+	send_command_primitive(TRAINER_PORT, trainer, "(look)")
+	sleep(1)
+	data=get_data_primitive(trainer)
+	look_data_parse(data)
+	println(field_state)
+	=#
 	start_data_update_loop(trainer)
-	sleep(5)
+	sleep(0)
+	PLAYER_goto(teams[1].players[1], Point(0, 0), Float16(1.0))
+	sleep(0)
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
-	sleep(10)
+	#send_command(PLAYER_PORT,teams[1].players[1].port, "(turn 30)")
+	sleep(20)
 
 	#kill game
 	for team ∈ teams

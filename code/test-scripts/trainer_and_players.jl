@@ -50,7 +50,6 @@ const WAIT_FOR_UPDATES = 0.1
 #}}}
 #{{{GLOBALS
 global mutex_command_send = IdDict{DataKey, ReentrantLock}()
-global server_trainer_data = "INIT EMPTY"
 global field_state = Dict{String, Any}() #team 1, team 2, ball
 global state_lock = ReentrantLock()
 global GLOBAL_TRAINER_SOCKET = UDPSocket()
@@ -130,7 +129,6 @@ function look_data_parse(raw::String)
 		if i > len
 			return
 		end
-		#println("parsing... $(raw[i])")
 
 		if raw[i] == "ball"
 			global field_state["ball"] = 
@@ -154,7 +152,6 @@ function look_data_parse(raw::String)
 			i+=1
 		end
 	end
-	#println("parse returning")
 end
 #}}}
 #}}}
@@ -183,56 +180,55 @@ function create_team(name::String, side::Symbol)::Team
 end
 #}}}
 #{{{LOW LEVEL SKILLS
-function PLAYER_goto(player::Player, position::Point, margin::Float16)
-	Δx=0
-	Δy=0
+function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8)
 	Threads.@spawn begin
 		while true
-			#lock(state_lock) do
-				Δx = abs(player.physical.position.x - position.x)
-				Δy = abs(player.physical.position.y - position.y)
-				if Δx < margin && Δy < margin
-					return
-				end
-				#println(Δx," ",Δy)
-				
-				θ = rad2deg(atan((position.y + player.physical.position.y), (position.x - player.physical.position.x)))
-				pangle = -player.physical.angle
-				Δθ = mod(pangle - θ + 180, 360) - 180
-				if abs(Δθ) > 5
-					#send_command(PLAYER_PORT, player.port, "(turn $(Δθ/2))")
-					#sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN+WAIT_FOR_UPDATES)
-					send_command_primitive(PLAYER_PORT, player.port, "(turn $(Δθ*1.5))")
-					sleep(COMMAND_UPDATE_DELAY+0.02)
-				end
-			#end
+			Δx = player.physical.position.x - position.x
+			Δy = player.physical.position.y + position.y
+			dist = hypot(Δx, Δy) 
+			#println("$(player.id): x=$(player.physical.position.x), y=$(player.physical.position.y), Δx=$Δx, Δy=$Δy, hyp=$dist")
+			if dist < margin
+				#println("$(player.id) END")
+				return #tell the parent process?
+			end
+			
+			θ = rad2deg(atan((position.y + player.physical.position.y), (position.x - player.physical.position.x)))
+			pangle = -player.physical.angle
+			Δθ = mod(pangle - θ + 180, 360) - 180
+			if abs(Δθ) > angle_precision
+				#send_command(PLAYER_PORT, player.port, "(turn $(Δθ/2))")
+				#sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN+WAIT_FOR_UPDATES)
+				send_command_primitive(PLAYER_PORT, player.port, "(turn $(Δθ))")
+				sleep(COMMAND_UPDATE_DELAY)
+			end
 			#send_command(PLAYER_PORT, player.port, "(dash 100)")
 			#sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN+WAIT_FOR_UPDATES)
-			if hypot(Δx, Δy) < 5
-				send_command_primitive(PLAYER_PORT, player.port, "(dash 10)")
+			if dist < break_distance
+				send_command_primitive(PLAYER_PORT, player.port, "(dash 20)")
 			else
 				send_command_primitive(PLAYER_PORT, player.port, "(dash 100)")
 			end
-			sleep(COMMAND_UPDATE_DELAY+0.02)
+			sleep(COMMAND_UPDATE_DELAY)
 		end
 	end
 end
 #}}}
 #{{{MASTER
 function master()
-	#define trainer
 	teamnames = ("Team_A", "Team_B")
+
+	#init trainer
 	trainer = Client(TRAINER_PORT)
 	GLOBAL_TRAINER_SOCKET = trainer
 	send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
 	start_data_update_loop(trainer)
-
-	#define teams
+	
+	#init teams
 	teams = (create_team(teamnames[1], :RIGHT),
-		 create_team(teamnames[2], :LEFT))
+			 create_team(teamnames[2], :LEFT))
 	field_state[teamnames[1]] = teams[1]
 	field_state[teamnames[2]] = teams[2]
-	
+
 	#define starting positions
 	starting_positions = (
 		Point(30,0), #goalie
@@ -243,16 +239,17 @@ function master()
 		Point(15,-20)
 	)
 	
-	#initiate game
-	#move players into their starting positions
+	#go to starting positions
 	side = Int8(1)
 	for team ∈ teams
 		for i = 1:NUMBER_OF_PLAYERS
-			PLAYER_goto(teams[1].players[i], Point(starting_positions[i].x*side, starting_positions[i].y), Float16(3))
+			PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(5), UInt8(10), UInt8(3))
 		end
+		side = -1
 	end
-	side = -1
 
+
+	#run game
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
 	sleep(60)
 

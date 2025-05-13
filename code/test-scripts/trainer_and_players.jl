@@ -223,10 +223,12 @@ function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_preci
 end
 =#
 #}}}
+#all functions take two steps (0.2 seconds) and return either :done or :undone
+#they are all aiming *toward* a goal, *not** to complete it
 function PLAYER_idle(_)::Symbol
 	:done
 end
-function PLAYER_go_toward(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8, break_amount::UInt8)::Symbol
+function PLAYER_go_toward(player::Player, position::Point, margin::Int, angle_precision::Int, break_distance::Int, break_amount::Int)::Symbol #go toward a particular coordinate
 	tx = position.x #target position
 	ty = position.y
 	px = player.physical.position.x #current player position
@@ -254,27 +256,50 @@ function PLAYER_go_toward(player::Player, position::Point, margin::UInt8, angle_
 			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
 		end
 	else
-			if dist < break_distance
-				send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
-			else
-				send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
-			end
-			sleep(COMMAND_UPDATE_DELAY)
-			if dist < break_distance
-				send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
-			else
-				send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
-			end
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
+		sleep(COMMAND_UPDATE_DELAY)
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
 	end
 	:undone #not finished with task yet
 end
+function PLAYER_kick(player::Player, direction::Int, power::Int)
+	tx = field_state["ball"].position.x #current ball position
+	ty = field_state["ball"].position.y
+	px = player.physical.position.x #current player position
+	py = player.physical.position.y
+
+	#θ = rad2deg(atan((ty - py), (tx - px)))
+	θ = direction
+	pangle = -player.physical.angle
+	Δθ = mod(pangle - θ + 180, 360) - 180
+	
+	send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ))")
+	sleep(COMMAND_UPDATE_DELAY)
+	send_command_primitive(PLAYER_PORT, player.sock, "(kick $power $direction)")
+
+	:done
+end
 #}}}
 #{{{EXECUTOR
-function executor_of_doom(team::Team, agent_instructions::Vector)
+function executor(team::Team, agent_instructions::Vector)
 	status = [:undone for i ∈ 1:NUMBER_OF_PLAYERS]
 	while true
 		for i=1:NUMBER_OF_PLAYERS
-			Threads.@spawn status[i] = agent_instructions[i].f(agent_instructions[i].args...)
+			Threads.@spawn begin
+				try
+					status[i] = agent_instructions[i].f(agent_instructions[i].args...)
+				catch
+					println("executor error")
+				end
+			end
 			if team.players[i].info["status"] != status[i]
 				lock(state_lock) do
 					team.players[i].info["status"] = status[i]
@@ -285,6 +310,17 @@ function executor_of_doom(team::Team, agent_instructions::Vector)
 		sleep(COMMAND_UPDATE_DELAY*2)
 	end
 end
+function update_player_instruction(team::Team, id::Int, func::Function, args::Tuple)
+	if team.name == "Team_A"
+		global agent_instructions_A[id] = FunctionCall(func,(team.players[id], args...))
+	end
+	if team.name == "Team_B"
+		global agent_instructions_B[id] = FunctionCall(func,(team.players[id], args...))
+	end
+end
+#}}}
+#{{{DECISION MAKER
+
 #}}}
 #{{{MASTER
 function master()
@@ -295,6 +331,7 @@ function master()
 	GLOBAL_TRAINER_SOCKET = trainer
 	send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
 	start_data_update_loop(trainer)
+	sleep(1)
 	
 	#init teams
 	teams = (create_team(teamnames[1], :RIGHT),
@@ -302,8 +339,9 @@ function master()
 	field_state[teamnames[1]] = teams[1]
 	field_state[teamnames[2]] = teams[2]
 
-	global agent_instructions_A = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
-	global agent_instructions_B = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	#global agent_instructions_A = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	#global agent_instructions_B = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	agent_instructions = (agent_instructions_A, agent_instructions_B)
 
 
 	#define starting positions
@@ -318,48 +356,32 @@ function master()
 	
 	#go to starting positions
 	#=
-	side = Int8(1)
-	for team ∈ teams
-		for i = 1:NUMBER_OF_PLAYERS
-			PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(5), UInt8(10), UInt8(3))
+	side = Int8(-1)
+	for j ∈ 1:2
+		for i ∈ 1:NUMBER_OF_PLAYERS
+				update_player_instruction(teams[j], i, PLAYER_go_toward, (Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(1), UInt8(10), UInt8(3), UInt8(50)))
 		end
-		side = -1
+		side = 1
 	end
 	=#
-
+	
 
 	#run game
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
-	sleep(1)
-
-	global agent_instructions_A[1] = FunctionCall(PLAYER_go_toward, (
-																	  teams[1].players[1],
-																	  teams[2].players[3].physical.position,
-																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
-																	 ))
-	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
-																	  teams[2].players[3],
-																	  #teams[2].players[1].physical.position,
-																	  Point(0,10),
-																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
-																	 ))
-	Threads.@spawn executor_of_doom(teams[1],agent_instructions_A)
-	Threads.@spawn executor_of_doom(teams[2],agent_instructions_B)
 	
-	sleep(5)
-	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
-																	  teams[2].players[3],
-																	  #teams[2].players[1].physical.position,
-																	  Point(30,-10),
-																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
-																	 ))
-	sleep(5)
-	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
-																	  teams[2].players[3],
-																	  #teams[2].players[1].physical.position,
-																	  Point(-30,20),
-																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
-																	 ))
+	Threads.@spawn executor(teams[1], agent_instructions_A)
+	Threads.@spawn executor(teams[2], agent_instructions_B)
+
+
+
+	update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+	sleep(1)
+	while field_state[teamnames[1]].players[1].info["status"] == :undone
+		sleep(COMMAND_UPDATE_DELAY)
+	end
+	update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
+
+
 
 	sleep(60)
 

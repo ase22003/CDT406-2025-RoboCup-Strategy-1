@@ -1,6 +1,7 @@
 #{{{PREAMBLE
 #{{{MODULES
 using Sockets
+using Dates
 #}}}
 #{{{STRUCTURES
 struct DataKey
@@ -9,6 +10,10 @@ struct DataKey
 end
 Base.:(==)(a::DataKey, b::DataKey) = a.id == b.id && a.socket === b.socket
 Base.hash(k::DataKey, h::UInt) = hash(k.id, h) ⊻ objectid(k.socket)
+mutable struct FunctionCall
+	f::Function
+	args::Tuple
+end
 #{{{FOOTBALL
 mutable struct Point
 	x::Float16
@@ -25,7 +30,7 @@ mutable struct Physical
 end
 struct Player
 	id::UInt8
-	port::UDPSocket
+	sock::UDPSocket
 	name::String #team name
 	physical::Physical
 	info::Dict{String, Any} #roles are given by "role" herein
@@ -49,13 +54,14 @@ const UPDATE_DELAY_MARGIN = 0.0
 const WAIT_FOR_UPDATES = 0.1
 #}}}
 #{{{GLOBALS
+const NUMBER_OF_PLAYERS = 6
+
 global mutex_command_send = IdDict{DataKey, ReentrantLock}()
 global field_state = Dict{String, Any}() #team 1, team 2, ball
 global state_lock = ReentrantLock()
 global GLOBAL_TRAINER_SOCKET = UDPSocket()
-#}}}
-#{{{SOCCER CONSTANTS
-const NUMBER_OF_PLAYERS = 6
+global agent_instructions_A = [FunctionCall(x->:x, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+global agent_instructions_B = [FunctionCall(x->:x, (0,)) for i in 1:NUMBER_OF_PLAYERS]
 
 #define goal positions
 field_state["goal"] = Dict{Symbol, Point}()
@@ -75,7 +81,7 @@ end
 
 function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 	send(sock, IP, port, message)
-	#println("$port SENT \"$message\"")
+	#println("$(time()) $port SENT \"$message\"")
 end
 
 function get_data_primitive(sock::UDPSocket)::String
@@ -157,14 +163,15 @@ end
 #}}}
 #{{{TEAM INITIATION FUNCTIONS
 function create_player(id::UInt8, name::String)::Player
-	port=Client(PLAYER_PORT)
-	send_command(PLAYER_PORT, port, "(init $name (version $VERSION))")
+	sock=Client(PLAYER_PORT)
+	send_command(PLAYER_PORT, sock, "(init $name (version $VERSION))")
 	info = Dict(); if id == 1 #the first player is always the goalie
 		info["role"] = "goalie"
 	end
+	info["status"] = :undone
 	Player(
 		id,
-		port,
+		sock,
 		name,
 		Physical(Point(0, 0), Velocity(0, 0), 0),
 		info
@@ -180,6 +187,8 @@ function create_team(name::String, side::Symbol)::Team
 end
 #}}}
 #{{{LOW LEVEL SKILLS
+#{{{REDUNDANT
+#=
 function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8)
 	Threads.@spawn begin
 		while true
@@ -212,6 +221,70 @@ function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_preci
 		end
 	end
 end
+=#
+#}}}
+function PLAYER_idle(_)::Symbol
+	:done
+end
+function PLAYER_go_toward(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8, break_amount::UInt8)::Symbol
+	tx = position.x #target position
+	ty = position.y
+	px = player.physical.position.x #current player position
+	py = player.physical.position.y
+	Δx = px - tx
+	Δy = py + ty
+	dist = hypot(Δx, Δy)
+	#println("$(player.id): x=$(player.physical.position.x), y=$(player.physical.position.y), Δx=$Δx, Δy=$Δy, hyp=$dist")
+	if dist < margin
+		return :done #finished with task
+	end
+	
+	θ = rad2deg(atan((ty + py), (tx - px)))
+	pangle = -player.physical.angle
+	Δθ = mod(pangle - θ + 180, 360) - 180
+
+	println("target: ($tx, $ty)")
+	println("$(player.id): x=$(px), y=$(py), Δx=$Δx, Δy=$Δy, hyp=$dist")
+	if abs(Δθ) > angle_precision
+		send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))")
+		sleep(COMMAND_UPDATE_DELAY)
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
+	else
+			if dist < break_distance
+				send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+			else
+				send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+			end
+			sleep(COMMAND_UPDATE_DELAY)
+			if dist < break_distance
+				send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+			else
+				send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+			end
+	end
+	:undone #not finished with task yet
+end
+#}}}
+#{{{EXECUTOR
+function executor_of_doom(team::Team, agent_instructions::Vector)
+	status = [:undone for i ∈ 1:NUMBER_OF_PLAYERS]
+	while true
+		for i=1:NUMBER_OF_PLAYERS
+			Threads.@spawn status[i] = agent_instructions[i].f(agent_instructions[i].args...)
+			if team.players[i].info["status"] != status[i]
+				lock(state_lock) do
+					team.players[i].info["status"] = status[i]
+					println("updated $i's status to $(status[i])")
+				end
+			end
+		end
+		sleep(COMMAND_UPDATE_DELAY*2)
+	end
+end
 #}}}
 #{{{MASTER
 function master()
@@ -229,9 +302,13 @@ function master()
 	field_state[teamnames[1]] = teams[1]
 	field_state[teamnames[2]] = teams[2]
 
+	global agent_instructions_A = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	global agent_instructions_B = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+
+
 	#define starting positions
 	starting_positions = (
-		Point(30,0), #goalie
+		Point(50,0), #goalie
 		Point(15,20),
 		Point(15,10),
 		Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
@@ -240,6 +317,7 @@ function master()
 	)
 	
 	#go to starting positions
+	#=
 	side = Int8(1)
 	for team ∈ teams
 		for i = 1:NUMBER_OF_PLAYERS
@@ -247,16 +325,32 @@ function master()
 		end
 		side = -1
 	end
+	=#
 
 
 	#run game
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	sleep(1)
+
+	global agent_instructions_A[1] = FunctionCall(PLAYER_go_toward, (
+																	  teams[1].players[1],
+																	  teams[2].players[3].physical.position,
+																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
+																	 ))
+	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
+																	  teams[2].players[3],
+																	  #teams[2].players[1].physical.position,
+																	  Point(20,20),
+																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
+																	 ))
+	Threads.@spawn executor_of_doom(teams[1],agent_instructions_A)
+	Threads.@spawn executor_of_doom(teams[2],agent_instructions_B)
 	sleep(60)
 
 	#kill game
 	for team ∈ teams
 		for player ∈ team.players
-    		die(player.port)
+    		die(player.sock)
 		end
 	end
 	die(trainer)

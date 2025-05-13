@@ -149,7 +149,7 @@ function look_data_parse(raw::String)
 			i+=5
 		elseif raw[i] == "player"
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.x  = parse(Float16, raw[i+3])
-			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = parse(Float16, raw[i+4])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = -parse(Float16, raw[i+4])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dx = parse(Float16, raw[i+6])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dy = parse(Float16, raw[i+7])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.angle       = parse(Float16, raw[i+5])
@@ -232,19 +232,19 @@ function PLAYER_go_toward(player::Player, position::Point, margin::UInt8, angle_
 	px = player.physical.position.x #current player position
 	py = player.physical.position.y
 	Δx = px - tx
-	Δy = py + ty
+	Δy = py - ty
 	dist = hypot(Δx, Δy)
 	#println("$(player.id): x=$(player.physical.position.x), y=$(player.physical.position.y), Δx=$Δx, Δy=$Δy, hyp=$dist")
 	if dist < margin
 		return :done #finished with task
 	end
 	
-	θ = rad2deg(atan((ty + py), (tx - px)))
+	θ = rad2deg(atan((ty - py), (tx - px)))
 	pangle = -player.physical.angle
 	Δθ = mod(pangle - θ + 180, 360) - 180
 
-	println("target: ($tx, $ty)")
-	println("$(player.id): x=$(px), y=$(py), Δx=$Δx, Δy=$Δy, hyp=$dist")
+	#println("target: ($tx, $ty)")
+	#println("$(player.id): x=$(px), y=$(py), Δx=$Δx, Δy=$Δy, hyp=$dist")
 	if abs(Δθ) > angle_precision
 		send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))")
 		sleep(COMMAND_UPDATE_DELAY)
@@ -340,11 +340,27 @@ function master()
 	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
 																	  teams[2].players[3],
 																	  #teams[2].players[1].physical.position,
-																	  Point(20,20),
+																	  Point(0,10),
 																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
 																	 ))
 	Threads.@spawn executor_of_doom(teams[1],agent_instructions_A)
 	Threads.@spawn executor_of_doom(teams[2],agent_instructions_B)
+	
+	sleep(5)
+	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
+																	  teams[2].players[3],
+																	  #teams[2].players[1].physical.position,
+																	  Point(30,-10),
+																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
+																	 ))
+	sleep(5)
+	global agent_instructions_B[3] = FunctionCall(PLAYER_go_toward, (
+																	  teams[2].players[3],
+																	  #teams[2].players[1].physical.position,
+																	  Point(-30,20),
+																	  UInt8(5), UInt8(15), UInt8(3), UInt8(80)
+																	 ))
+
 	sleep(60)
 
 	#kill game

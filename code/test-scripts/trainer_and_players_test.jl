@@ -264,58 +264,114 @@ function master()
 
 	if testMode==1  #Testpurposes
 			#Try new positions
+		sleep(5)
+		for iter=1:8000    #4000 originally
+			
+			#sleep(0.01)	
 
+			if iter==1000
+				println("Iteration=$(iter)")
+			end
+			if iter==3000
+				println("Iteration=$(iter)")
+			end
+			#if iter==5500
+			#	println("Iteration=$(iter)")
+			#end
+			
+			side = Int8(1)
+			ballPos=field_state["ball"]
 
-	ballPos=field_state["ball"]
+			starting_positions = (
+				ballPos.position, #goalie
+				ballPos.position,
+				ballPos.position,
+				ballPos.position, ######### ADD/DEFINE "KICKER" POSITION
+				ballPos.position,
+				ballPos.position
+			)	
 
-	starting_positions = (
-		ballPos.position, #goalie
-		Point(15,20),
-		Point(15,10),
-		Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
-		Point(15,-10),
-		Point(15,-20)
-	)	
+			if iter==1000
+				println("ballPos=$(ballPos)")
+			end
+			if iter==3000
+				println("ballPos=$(ballPos)")
+			end
+			if iter==5500
+				println("ballPos=$(ballPos)")
+			end
 
-	#sleep(1)
-	posPlayer=field_state["Team_A"]
+			for team ∈ teams  #team ∈ teams
+				for i = 1:NUMBER_OF_PLAYERS
+					PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(3), UInt8(5), UInt8(2)) # 5 10 3
+				end
+				side = -1
+			end
+
+			for j=1:2
+				#println("Team=$(j)")
+				for k = 1:NUMBER_OF_PLAYERS
+					#println("Player=$(k)")
+					send_command_primitive(PLAYER_PORT, teams[j].players[k].port, "(kick 100 0)")
+				end
+				side = -1
+			end
+			
+			#testMode=0
+
+		end
+
+		
+		#println("Iteration done")
+		
+
+		#sleep(1)
+		posPlayer=field_state["Team_A"]
 
 	
 	
 
 		#go to starting positions NEW
-	side = Int8(1)
-	for team ∈ teams
-		for i = 1:NUMBER_OF_PLAYERS
-			PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(5), UInt8(10), UInt8(3))
+		side = Int8(1)
+		for team ∈ teams
+			for i = 1:NUMBER_OF_PLAYERS
+				PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(5), UInt8(10), UInt8(3))
+			end
+			side = -1
 		end
-		side = -1
-	end
 
-	sleep(10)
-	
-	#Try to make goalies kick (index1)
-	println("Attempt Kick")
-	send_command_primitive(PLAYER_PORT, teams[1].players[1].port, "(kick 100 0)")
-	send_command_primitive(PLAYER_PORT, teams[2].players[1].port, "(kick 100 0)")
-	
+		sleep(10)
+		
+		#Try to make goalies kick (index1)
+		println("Attempt Kick")
+		
+		send_command_primitive(PLAYER_PORT, teams[2].players[1].port, "(kick 100 0)")
+		
 
-	end
+		
 
+		starting_positions = (      #original
+			ballPos.position, #goalie
+			Point(15,20),
+			Point(15,10),
+			Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
+			Point(15,-10),
+			Point(15,-20)
+		)	
 
+		#run game
+		
+		sleep(90)  #original sleep was 60, 90
 
-	#run game
-	
-	sleep(90)  #original sleep was 60
-
-	#kill game
-	for team ∈ teams
-		for player ∈ team.players
-    		die(player.port)
+		#kill game
+		for team ∈ teams
+			for player ∈ team.players
+				die(player.port)
+			end
 		end
+		die(trainer)
 	end
-	die(trainer)
-end
+end	
 #}}}
 #}}}
 #{{{PROGRAM

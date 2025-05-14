@@ -286,7 +286,7 @@ function master()
 				ballPos.position, #goalie
 				ballPos.position,
 				ballPos.position,
-				ballPos.position, ######### ADD/DEFINE "KICKER" POSITION
+				ballPos.position, ######### ADD/DEFINE "KICKER" POSITION hej
 				ballPos.position,
 				ballPos.position
 			)	

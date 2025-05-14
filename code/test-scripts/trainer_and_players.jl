@@ -1,6 +1,7 @@
 #{{{PREAMBLE
 #{{{MODULES
 using Sockets
+using Dates
 #}}}
 #{{{STRUCTURES
 struct DataKey
@@ -9,6 +10,10 @@ struct DataKey
 end
 Base.:(==)(a::DataKey, b::DataKey) = a.id == b.id && a.socket === b.socket
 Base.hash(k::DataKey, h::UInt) = hash(k.id, h) ⊻ objectid(k.socket)
+mutable struct FunctionCall
+	f::Function
+	args::Tuple
+end
 #{{{FOOTBALL
 mutable struct Point
 	x::Float16
@@ -25,7 +30,7 @@ mutable struct Physical
 end
 struct Player
 	id::UInt8
-	port::UDPSocket
+	sock::UDPSocket
 	name::String #team name
 	physical::Physical
 	info::Dict{String, Any} #roles are given by "role" herein
@@ -49,13 +54,14 @@ const UPDATE_DELAY_MARGIN = 0.0
 const WAIT_FOR_UPDATES = 0.1
 #}}}
 #{{{GLOBALS
+const NUMBER_OF_PLAYERS = 6
+
 global mutex_command_send = IdDict{DataKey, ReentrantLock}()
 global field_state = Dict{String, Any}() #team 1, team 2, ball
 global state_lock = ReentrantLock()
 global GLOBAL_TRAINER_SOCKET = UDPSocket()
-#}}}
-#{{{SOCCER CONSTANTS
-const NUMBER_OF_PLAYERS = 6
+global agent_instructions_A = [FunctionCall(x->:x, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+global agent_instructions_B = [FunctionCall(x->:x, (0,)) for i in 1:NUMBER_OF_PLAYERS]
 
 #define goal positions
 field_state["goal"] = Dict{Symbol, Point}()
@@ -75,7 +81,7 @@ end
 
 function send_command_primitive(port::Int, sock::UDPSocket, message::String)
 	send(sock, IP, port, message)
-	#println("$port SENT \"$message\"")
+	#println("$(time()) $port SENT \"$message\"")
 end
 
 function get_data_primitive(sock::UDPSocket)::String
@@ -143,7 +149,7 @@ function look_data_parse(raw::String)
 			i+=5
 		elseif raw[i] == "player"
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.x  = parse(Float16, raw[i+3])
-			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = parse(Float16, raw[i+4])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = -parse(Float16, raw[i+4])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dx = parse(Float16, raw[i+6])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dy = parse(Float16, raw[i+7])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.angle       = parse(Float16, raw[i+5])
@@ -157,14 +163,15 @@ end
 #}}}
 #{{{TEAM INITIATION FUNCTIONS
 function create_player(id::UInt8, name::String)::Player
-	port=Client(PLAYER_PORT)
-	send_command(PLAYER_PORT, port, "(init $name (version $VERSION))")
+	sock=Client(PLAYER_PORT)
+	send_command(PLAYER_PORT, sock, "(init $name (version $VERSION))")
 	info = Dict(); if id == 1 #the first player is always the goalie
 		info["role"] = "goalie"
 	end
+	info["status"] = :undone
 	Player(
 		id,
-		port,
+		sock,
 		name,
 		Physical(Point(0, 0), Velocity(0, 0), 0),
 		info
@@ -180,6 +187,8 @@ function create_team(name::String, side::Symbol)::Team
 end
 #}}}
 #{{{LOW LEVEL SKILLS
+#{{{REDUNDANT
+#=
 function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8)
 	Threads.@spawn begin
 		while true
@@ -212,6 +221,106 @@ function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_preci
 		end
 	end
 end
+=#
+#}}}
+#all functions take two steps (0.2 seconds) and return either :done or :undone
+#they are all aiming *toward* a goal, *not** to complete it
+function PLAYER_idle(_)::Symbol
+	:done
+end
+function PLAYER_go_toward(player::Player, position::Point, margin::Int, angle_precision::Int, break_distance::Int, break_amount::Int)::Symbol #go toward a particular coordinate
+	tx = position.x #target position
+	ty = position.y
+	px = player.physical.position.x #current player position
+	py = player.physical.position.y
+	Δx = px - tx
+	Δy = py - ty
+	dist = hypot(Δx, Δy)
+	#println("$(player.id): x=$(player.physical.position.x), y=$(player.physical.position.y), Δx=$Δx, Δy=$Δy, hyp=$dist")
+	if dist < margin
+		return :done #finished with task
+	end
+	
+	θ = rad2deg(atan((ty - py), (tx - px)))
+	pangle = -player.physical.angle
+	Δθ = mod(pangle - θ + 180, 360) - 180
+
+	#println("target: ($tx, $ty)")
+	#println("$(player.id): x=$(px), y=$(py), Δx=$Δx, Δy=$Δy, hyp=$dist")
+	if abs(Δθ) > angle_precision
+		send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))")
+		sleep(COMMAND_UPDATE_DELAY)
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
+	else
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
+		sleep(COMMAND_UPDATE_DELAY)
+		if dist < break_distance
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+		else
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
+		end
+	end
+	:undone #not finished with task yet
+end
+function PLAYER_kick(player::Player, direction::Int, power::Int)
+	tx = field_state["ball"].position.x #current ball position
+	ty = field_state["ball"].position.y
+	px = player.physical.position.x #current player position
+	py = player.physical.position.y
+
+	#θ = rad2deg(atan((ty - py), (tx - px)))
+	θ = direction
+	pangle = -player.physical.angle
+	Δθ = mod(pangle - θ + 180, 360) - 180
+	
+	send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ))")
+	sleep(COMMAND_UPDATE_DELAY)
+	send_command_primitive(PLAYER_PORT, player.sock, "(kick $power $direction)")
+
+	:done
+end
+#}}}
+#{{{EXECUTOR
+function executor(team::Team, agent_instructions::Vector)
+	status = [:undone for i ∈ 1:NUMBER_OF_PLAYERS]
+	while true
+		for i=1:NUMBER_OF_PLAYERS
+			Threads.@spawn begin
+				try
+					status[i] = agent_instructions[i].f(agent_instructions[i].args...)
+				catch
+					println("executor error")
+				end
+			end
+			if team.players[i].info["status"] != status[i]
+				lock(state_lock) do
+					team.players[i].info["status"] = status[i]
+					println("updated $i's status to $(status[i])")
+				end
+			end
+		end
+		sleep(COMMAND_UPDATE_DELAY*2)
+	end
+end
+function update_player_instruction(team::Team, id::Int, func::Function, args::Tuple)
+	if team.name == "Team_A"
+		global agent_instructions_A[id] = FunctionCall(func,(team.players[id], args...))
+	end
+	if team.name == "Team_B"
+		global agent_instructions_B[id] = FunctionCall(func,(team.players[id], args...))
+	end
+end
+#}}}
+#{{{DECISION MAKER
+
 #}}}
 #{{{MASTER
 function master()
@@ -222,6 +331,7 @@ function master()
 	GLOBAL_TRAINER_SOCKET = trainer
 	send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
 	start_data_update_loop(trainer)
+	sleep(1)
 	
 	#init teams
 	teams = (create_team(teamnames[1], :RIGHT),
@@ -229,9 +339,14 @@ function master()
 	field_state[teamnames[1]] = teams[1]
 	field_state[teamnames[2]] = teams[2]
 
+	#global agent_instructions_A = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	#global agent_instructions_B = [FunctionCall(PLAYER_idle, (0,)) for i in 1:NUMBER_OF_PLAYERS]
+	agent_instructions = (agent_instructions_A, agent_instructions_B)
+
+
 	#define starting positions
 	starting_positions = (
-		Point(30,0), #goalie
+		Point(50,0), #goalie
 		Point(15,20),
 		Point(15,10),
 		Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
@@ -240,23 +355,40 @@ function master()
 	)
 	
 	#go to starting positions
-	side = Int8(1)
-	for team ∈ teams
-		for i = 1:NUMBER_OF_PLAYERS
-			PLAYER_goto(team.players[i], Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(5), UInt8(10), UInt8(3))
+	#=
+	side = Int8(-1)
+	for j ∈ 1:2
+		for i ∈ 1:NUMBER_OF_PLAYERS
+				update_player_instruction(teams[j], i, PLAYER_go_toward, (Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(1), UInt8(10), UInt8(3), UInt8(50)))
 		end
-		side = -1
+		side = 1
 	end
-
+	=#
+	
 
 	#run game
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	
+	Threads.@spawn executor(teams[1], agent_instructions_A)
+	Threads.@spawn executor(teams[2], agent_instructions_B)
+
+
+
+	update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+	sleep(1)
+	while field_state[teamnames[1]].players[1].info["status"] == :undone
+		sleep(COMMAND_UPDATE_DELAY)
+	end
+	update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
+
+
+
 	sleep(60)
 
 	#kill game
 	for team ∈ teams
 		for player ∈ team.players
-    		die(player.port)
+    		die(player.sock)
 		end
 	end
 	die(trainer)

@@ -141,7 +141,7 @@ function look_data_parse(raw::String)
 				Physical(
 						 Point(
 							   parse(Float16, raw[i+1]),
-						 	   parse(Float16, raw[i+2])),
+						 	   -parse(Float16, raw[i+2])),
 						  Velocity(
 								   parse(Float16, raw[i+3]),
 						  		   parse(Float16, raw[i+4])),
@@ -303,7 +303,7 @@ function executor(team::Team, agent_instructions::Vector)
 			if team.players[i].info["status"] != status[i]
 				lock(state_lock) do
 					team.players[i].info["status"] = status[i]
-					println("updated $i's status to $(status[i])")
+					println("updated $i's status to $(status[i])")    #DENNA FUCKAR OUTPUT I TERMINALEN
 				end
 			end
 		end
@@ -372,16 +372,31 @@ function master()
 	Threads.@spawn executor(teams[1], agent_instructions_A)
 	Threads.@spawn executor(teams[2], agent_instructions_B)
 
-
-
-	update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
 	sleep(1)
-	while field_state[teamnames[1]].players[1].info["status"] == :undone
-		sleep(COMMAND_UPDATE_DELAY)
+
+	while true  #Han tror han blir klar efter walk, separata while loopar? (LÖST)
+
+		if field_state["ball"].position.x >52.5  #Point(52.5, 0)  
+			field_state["ball"].position = Point(0, 0)     #Problemet är att vi måste skicka det till servern, send_command?
+			#send_command(TRAINER_PORT, trainer, "(kick_off_l)")   #funkar inte, sköts manuellt via monitor (referee)?
+		end
+
+		update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+		println("Walk")
+		sleep(1)
+		while field_state[teamnames[1]].players[1].info["status"] == :undone
+			println("Undone walk")
+			sleep(COMMAND_UPDATE_DELAY)
+		end
+		field_state[teamnames[1]].players[1].info["status"] = :undone
+		println("Initiate kick")
+		update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
+		println("Kick attempted")
+		while field_state[teamnames[1]].players[1].info["status"] == :undone
+			sleep(COMMAND_UPDATE_DELAY)
+			println("Undone kick")
+		end
 	end
-	update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
-
-
 
 	sleep(60)
 

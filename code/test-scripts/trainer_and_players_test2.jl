@@ -144,7 +144,7 @@ function look_data_parse(raw::String)
 						 	   -parse(Float16, raw[i+2])),
 						  Velocity(
 								   parse(Float16, raw[i+3]),
-						  		   parse(Float16, raw[i+4])),
+						  		   parse(Float16, raw[i+4])),  #parse(Float16, raw[i+4]))
 						  Float16(0))
 			i+=5
 		elseif raw[i] == "player"
@@ -283,6 +283,7 @@ function PLAYER_kick(player::Player, direction::Int, power::Int)
 	
 	send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ))")
 	sleep(COMMAND_UPDATE_DELAY)
+	#println("delta theta: $Δθ")
 	send_command_primitive(PLAYER_PORT, player.sock, "(kick $power $direction)")
 
 	:done
@@ -325,6 +326,7 @@ end
 #{{{MASTER
 function master()
 	teamnames = ("Team_A", "Team_B")
+	testScenario=0 #add integer values here that represent different scenarios. 0=agent dribbling and shooting alone
 
 	#init trainer
 	trainer = Client(TRAINER_PORT)
@@ -374,31 +376,75 @@ function master()
 
 	sleep(1)
 
-	while true  #Han tror han blir klar efter walk, separata while loopar? (LÖST)
+	if testScenario==0 #0=agent dribbling and shooting alone
 
-		if field_state["ball"].position.x >52.5  #Point(52.5, 0)  
-			field_state["ball"].position = Point(0, 0)     #Problemet är att vi måste skicka det till servern, send_command?
-			#send_command(TRAINER_PORT, trainer, "(kick_off_l)")   #funkar inte, sköts manuellt via monitor (referee)?
+		while true  #Han tror han blir klar efter walk, separata while loopar? (LÖST)
+
+			if field_state["ball"].position.x >52.5  #Point(52.5, 0)  
+				field_state["ball"].position = Point(0, 0)     #Problemet är att vi måste skicka det till servern, send_command?
+				#send_command(TRAINER_PORT, trainer, "(kick_off_l)")   #funkar inte, sköts manuellt via monitor (referee)?
+				#send_command(TRAINER_PORT, trainer, "(change_mode kick_off_l)")  #"(change_mode kick_off_l)")  Flyttar inte på bollen?
+				#send_command(TRAINER_PORT, trainer, "(change_mode play_off)")
+				#send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+				
+				#send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))"
+				send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+			end
+
+			update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+			#println("Walk")
+			sleep(1)
+			while field_state[teamnames[1]].players[1].info["status"] == :undone
+				#println("Undone walk")
+				sleep(COMMAND_UPDATE_DELAY)
+			end
+			field_state[teamnames[1]].players[1].info["status"] = :undone
+			#println("Initiate kick")
+			update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
+			#println("Kick attempted")
+			while field_state[teamnames[1]].players[1].info["status"] == :undone
+				sleep(COMMAND_UPDATE_DELAY)
+				#println("Undone kick")
+			end
 		end
 
-		update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
-		println("Walk")
-		sleep(1)
-		while field_state[teamnames[1]].players[1].info["status"] == :undone
-			println("Undone walk")
-			sleep(COMMAND_UPDATE_DELAY)
-		end
-		field_state[teamnames[1]].players[1].info["status"] = :undone
-		println("Initiate kick")
-		update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
-		println("Kick attempted")
-		while field_state[teamnames[1]].players[1].info["status"] == :undone
-			sleep(COMMAND_UPDATE_DELAY)
-			println("Undone kick")
-		end
 	end
 
-	sleep(60)
+	if testScenario==1 #implement new scenario here, ideas: passing? 1v1?
+
+		while true  #Han tror han blir klar efter walk, separata while loopar? (LÖST)
+
+			if field_state["ball"].position.x >52.5  #Point(52.5, 0)  
+				field_state["ball"].position = Point(0, 0)     #Problemet är att vi måste skicka det till servern, send_command?
+				#send_command(TRAINER_PORT, trainer, "(kick_off_l)")   #funkar inte, sköts manuellt via monitor (referee)?
+				#send_command(TRAINER_PORT, trainer, "(change_mode kick_off_l)")  #"(change_mode kick_off_l)")  Flyttar inte på bollen?
+				#send_command(TRAINER_PORT, trainer, "(change_mode play_off)")
+				#send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+				
+				#send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))"
+				send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+			end
+
+			update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+			#println("Walk")
+			sleep(1)
+			while field_state[teamnames[1]].players[1].info["status"] == :undone
+				#println("Undone walk")
+				sleep(COMMAND_UPDATE_DELAY)
+			end
+			field_state[teamnames[1]].players[1].info["status"] = :undone
+			#println("Initiate kick")
+			update_player_instruction(teams[1], 1, PLAYER_kick, (90, 100))
+			#println("Kick attempted")
+			while field_state[teamnames[1]].players[1].info["status"] == :undone
+				sleep(COMMAND_UPDATE_DELAY)
+				#println("Undone kick")
+			end
+		end
+
+	end
+
+	sleep(500)  #vad gör ens denna?
 
 	#kill game
 	for team ∈ teams

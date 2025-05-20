@@ -23,7 +23,7 @@ from vmas.simulator.environment.gym import GymWrapper
 from vmas.simulator.scenario import BaseScenario
 from vmas.simulator.utils import save_video
 
-N_TEXT_LINES_INTERACTIVE = 6
+N_TEXT_LINES_INTERACTIVE = 8
 
 
 class InteractiveEnv:
@@ -46,6 +46,7 @@ class InteractiveEnv:
         render_name: str = "interactive",
     ):
         self.env = env
+        self.env.unwrapped.scenario.interactive_env = self
         self.control_two_agents = control_two_agents
         # hard-coded keyboard events
         self.current_agent_index = 0
@@ -55,12 +56,12 @@ class InteractiveEnv:
         self.continuous = self.env.unwrapped.continuous_actions
         self.reset = False
         self.keys = np.array(
-            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )  # up, down, left, right, rot+, rot-
         self.keys2 = np.array(
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )  # up, down, left, right, rot+, rot-
-        self.u = [0] * (3 if self.continuous else 2)
+        self.u = [0] * (4 if self.continuous else 2)
         self.u2 = [0] * (3 if self.continuous else 2)
         self.frame_list = []
         self.display_info = display_info
@@ -142,6 +143,10 @@ class InteractiveEnv:
                 message = f"Selected: {self.env.unwrapped.agents[self.current_agent_index].name}"
                 self._write_values(5, message)
 
+                self._write_values(6, f"Space: {self.keys[6]}") #works
+                agent_range = self.agents[self.current_agent_index].action.u_range_tensor
+                #self._write_values(7, f"Space2: {agent_range[3]}")
+
             frame = self.env.render(
                 mode="rgb_array" if self.save_render else "human",
                 visualize_when_rgb=True,
@@ -183,6 +188,8 @@ class InteractiveEnv:
                 self.keys[4] = agent_range[2]
             elif k == key.N:
                 self.keys[5] = agent_range[2]
+            elif k == key.SPACE:
+                self.keys[6] = agent_range[3]
             elif k == key.TAB:
                 self.current_agent_index = self._increment_selected_agent_index(
                     self.current_agent_index
@@ -244,6 +251,8 @@ class InteractiveEnv:
             self.keys[4] = 0
         elif k == key.N:
             self.keys[5] = 0
+        elif k == key.SPACE:
+            self.keys[6] = 0
 
         if self.control_two_agents:
             if k == key.A:
@@ -267,6 +276,7 @@ class InteractiveEnv:
                 self.keys[1] - self.keys[0],
                 self.keys[3] - self.keys[2],
                 self.keys[4] - self.keys[5],
+                self.keys[6],
             ]
             self.u2 = [
                 self.keys2[1] - self.keys2[0],
@@ -291,6 +301,9 @@ class InteractiveEnv:
                 self.u2[1] = np.argmax(self.keys2[4:]) + 1
             else:
                 self.u2[1] = 0
+        #print (self.u)
+    def get_u(self):
+        return self.u
 
     @staticmethod
     def format_obs(obs):

@@ -1906,7 +1906,7 @@ class Scenario(BaseScenario):
     def extra_render(self, env_index: int = 0) -> "List[Geom]":
         from vmas.simulator import rendering
         from vmas.simulator.rendering import Geom
-        from vmas.simulator.rendering import make_text
+        # from vmas.simulator.rendering import make_text
 
         # Background
         # You can disable background rendering in case you are plotting the a function on the field
@@ -1922,58 +1922,39 @@ class Scenario(BaseScenario):
 
         # Agent rotation and shooting
         if self.enable_shooting:
-            combined = self.blue_agents + self.red_agents
-            for agent in combined:
+            for agent in self.blue_agents:
                 color = agent.color
-                if self.render_shooting_angle:
-                    
-                    if (
-                        agent.ball_within_angle[env_index]
-                        and agent.ball_within_range[env_index]
-                    ):
-                        color = Color.PINK.value
-                    sector = rendering.make_circle(
-                        radius=self.shooting_radius, angle=self.shooting_angle, filled=True
-                    )
-                    xform = rendering.Transform()
-                    xform.set_rotation(agent.state.rot[env_index])
-                    xform.set_translation(*agent.state.pos[env_index])
-                    sector.add_attr(xform)
-                    sector.set_color(*color, alpha=agent._alpha / 2)
-                    geoms.append(sector)
-                if self.render_shooting_power:
-                    shoot_intensity = torch.linalg.vector_norm(
-                        agent.shoot_force[env_index]
-                    ) / (self.u_shoot_multiplier * 2)
-                    l, r, t, b = (
-                        0,
-                        self.shooting_radius * shoot_intensity,
-                        self.agent_size / 2,
-                        -self.agent_size / 2,
-                    )
-                    line = rendering.make_polygon([(l, b), (l, t), (r, t), (r, b)])
-                    xform = rendering.Transform()
-                    xform.set_rotation(agent.state.rot[env_index])
-                    xform.set_translation(*agent.state.pos[env_index])
-                    line.add_attr(xform)
-                    line.set_color(*color, alpha=agent._alpha)
-                    geoms.append(line)
-        
-        scoreboard_text = f"Blue: {int(self.score_blue/(self.n_blue_agents**(1-self.ai_blue_agents)))}  Red: {int(self.score_red/(self.n_blue_agents** (1-self.ai_blue_agents)))}"
-        #current workaround since reward is centralised for ai agents (only one reward per step is calculated) and for manual agents is not (so score is incremented for each agent)
-        #print(self.score_red)
-        #print(self.n_blue_agents**(1-self.ai_blue_agents))
-        if hasattr(self, "timer_text"):
-            scoreboard_text += f"   {self.timer_text}"
-        scoreboard_y = self.pitch_width / 2 + 400 / scaler  # 400/scaler for extra offset
-        scoreboard_geom = make_text(
-            text=scoreboard_text,
-            x=0,
-            y=scoreboard_y,
-            font_size=32,
-            color=(0, 0, 0, 1)
-        )
-        geoms.append(scoreboard_geom)
+                if (
+                    agent.ball_within_angle[env_index]
+                    and agent.ball_within_range[env_index]
+                ):
+                    color = Color.PINK.value
+                sector = rendering.make_circle(
+                    radius=self.shooting_radius, angle=self.shooting_angle, filled=True
+                )
+                xform = rendering.Transform()
+                xform.set_rotation(agent.state.rot[env_index])
+                xform.set_translation(*agent.state.pos[env_index])
+                sector.add_attr(xform)
+                sector.set_color(*color, alpha=agent._alpha / 2)
+                geoms.append(sector)
+
+                shoot_intensity = torch.linalg.vector_norm(
+                    agent.shoot_force[env_index]
+                ) / (self.u_shoot_multiplier * 2)
+                l, r, t, b = (
+                    0,
+                    self.shooting_radius * shoot_intensity,
+                    self.agent_size / 2,
+                    -self.agent_size / 2,
+                )
+                line = rendering.make_polygon([(l, b), (l, t), (r, t), (r, b)])
+                xform = rendering.Transform()
+                xform.set_rotation(agent.state.rot[env_index])
+                xform.set_translation(*agent.state.pos[env_index])
+                line.add_attr(xform)
+                line.set_color(*color, alpha=agent._alpha)
+                geoms.append(line)
 
         return geoms
 

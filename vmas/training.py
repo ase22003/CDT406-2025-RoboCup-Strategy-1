@@ -137,6 +137,7 @@ for step in range(num_steps):
 
 print(f"\nTotal steps collected: {len(rollout)}")
 
+
 # --- Return Calculation ---
 def compute_returns(rews, gamma=0.99):
     """Compute discounted returns for each timestep."""
@@ -147,6 +148,7 @@ def compute_returns(rews, gamma=0.99):
         G = rews[t] + gamma * G
         R[t] = G
     return R
+
 
 # --- Prepare Training Data ---
 obs = torch.cat([t["obs"] for t in rollout], dim=0)
@@ -209,6 +211,7 @@ for epoch in range(n_epochs):
         critic_optim.step()
 
 print("PPO update completed.")
+
 
 # --- Evaluation/Rendering ---
 def render_episode(policy):
@@ -283,6 +286,7 @@ def render_episode(policy):
         render_env.render()
         if td["done"].item():
             break
+
 
 render_episode(policy)
 

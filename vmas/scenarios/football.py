@@ -24,7 +24,10 @@ if typing.TYPE_CHECKING:
 
 #TODO 
 #implement penalty
-
+#add pass acction after out/corner/goalout (out detection is currently in reward but should be moved in process action)
+#create function for relocating agents closer but not too close to the ball after out/corner (currently uses random relocation on agent side)
+#implement decision three in run function to decide what action should agent take //hightest prio
+#add few less complex actions: stand, run, open up
 scaler = 3000
 counter = 0
 class Scenario(BaseScenario):
@@ -414,7 +417,7 @@ class Scenario(BaseScenario):
         ball = Agent(
             name="Ball",
             shape=Sphere(radius=self.ball_size),
-            action_script=ball_action_script,
+            action_script=None,#ball_action_script,
             max_speed=self.ball_max_speed,
             mass=self.ball_mass,
             alpha=1,
@@ -1098,12 +1101,12 @@ class Scenario(BaseScenario):
     def process_action(self, agent: Agent):
         if agent is self.ball:
             return
-        #TODO: fix agent.action.u[..., -1] scaling and remove get_u workaround
+        #TODO: fix agent.action.u[..., -1] scaling and remove get_u workaround //not prio
         #agent.action.u[..., -1] was allways 0 but okwworks in interactive rendering. Other values are scaling from [-1,1] to [-0.2,0.2]
 
         if hasattr(self, 'interactive_env') and self.interactive_env is not None:
             current_u = self.interactive_env.get_u()
-            #print(f"Current interactive actions: {current_u[-1]}")
+            print(f"Current interactive actions: {current_u[-1]}")
 
         blue = agent in self.blue_agents
         if agent.action_script is None and not blue:  # Non AI
@@ -1158,10 +1161,10 @@ class Scenario(BaseScenario):
                     agent.action.u[..., 3] * 2.67 * self.u_shoot_multiplier
                 )
             #uncoment this if testing manually
-            #else:
-            #    shoot_force[..., X] = (
-            #        current_u[-1]* 2.67 * self.u_shoot_multiplier
-            #    )
+            else:
+                shoot_force[..., X] = (
+                    current_u[-1]* 2.67 * self.u_shoot_multiplier
+                )
             shoot_force = TorchUtils.rotate_vector(shoot_force, agent.state.rot)
             agent.shoot_force = shoot_force
             shoot_force = torch.where(
@@ -1238,9 +1241,9 @@ class Scenario(BaseScenario):
             )
             blue_score = over_right_line * goal_mask
             red_score = over_left_line * goal_mask
-            if blue_score.any():#and self.name == "agent_blue_0": #TODO update when removing goal detection from reward.
+            if blue_score.any():
                 self.score_blue += int(blue_score.sum().item())
-            if red_score.any():# and agent.name == "agent_blue_0": #currently works because only blue agents use this if in reward
+            if red_score.any():
                 self.score_red += int(red_score.sum().item())
 
             # Detect different out-of-bounds scenarios
@@ -1841,7 +1844,7 @@ class Scenario(BaseScenario):
         #self.counter +=1
         #print (self.counter)
         if self.ai_blue_agents and self.ai_red_agents:
-            #self.reward(None)
+            self.reward(None)
             #for agent in self.blue_agents + self.red_agents:
             #    print(agent.name, "reward - ",self.reward(agent))
             #print("Global reward -", self.reward(None))
@@ -1906,7 +1909,7 @@ class Scenario(BaseScenario):
     def extra_render(self, env_index: int = 0) -> "List[Geom]":
         from vmas.simulator import rendering
         from vmas.simulator.rendering import Geom
-        # from vmas.simulator.rendering import make_text
+        from vmas.simulator.rendering import make_text
 
         # Background
         # You can disable background rendering in case you are plotting the a function on the field
@@ -1922,39 +1925,58 @@ class Scenario(BaseScenario):
 
         # Agent rotation and shooting
         if self.enable_shooting:
-            for agent in self.blue_agents:
+            combined = self.blue_agents + self.red_agents
+            for agent in combined:
                 color = agent.color
-                if (
-                    agent.ball_within_angle[env_index]
-                    and agent.ball_within_range[env_index]
-                ):
-                    color = Color.PINK.value
-                sector = rendering.make_circle(
-                    radius=self.shooting_radius, angle=self.shooting_angle, filled=True
-                )
-                xform = rendering.Transform()
-                xform.set_rotation(agent.state.rot[env_index])
-                xform.set_translation(*agent.state.pos[env_index])
-                sector.add_attr(xform)
-                sector.set_color(*color, alpha=agent._alpha / 2)
-                geoms.append(sector)
-
-                shoot_intensity = torch.linalg.vector_norm(
-                    agent.shoot_force[env_index]
-                ) / (self.u_shoot_multiplier * 2)
-                l, r, t, b = (
-                    0,
-                    self.shooting_radius * shoot_intensity,
-                    self.agent_size / 2,
-                    -self.agent_size / 2,
-                )
-                line = rendering.make_polygon([(l, b), (l, t), (r, t), (r, b)])
-                xform = rendering.Transform()
-                xform.set_rotation(agent.state.rot[env_index])
-                xform.set_translation(*agent.state.pos[env_index])
-                line.add_attr(xform)
-                line.set_color(*color, alpha=agent._alpha)
-                geoms.append(line)
+                if self.render_shooting_angle:
+                    
+                    if (
+                        agent.ball_within_angle[env_index]
+                        and agent.ball_within_range[env_index]
+                    ):
+                        color = Color.PINK.value
+                    sector = rendering.make_circle(
+                        radius=self.shooting_radius, angle=self.shooting_angle, filled=True
+                    )
+                    xform = rendering.Transform()
+                    xform.set_rotation(agent.state.rot[env_index])
+                    xform.set_translation(*agent.state.pos[env_index])
+                    sector.add_attr(xform)
+                    sector.set_color(*color, alpha=agent._alpha / 2)
+                    geoms.append(sector)
+                if self.render_shooting_power:
+                    shoot_intensity = torch.linalg.vector_norm(
+                        agent.shoot_force[env_index]
+                    ) / (self.u_shoot_multiplier * 2)
+                    l, r, t, b = (
+                        0,
+                        self.shooting_radius * shoot_intensity,
+                        self.agent_size / 2,
+                        -self.agent_size / 2,
+                    )
+                    line = rendering.make_polygon([(l, b), (l, t), (r, t), (r, b)])
+                    xform = rendering.Transform()
+                    xform.set_rotation(agent.state.rot[env_index])
+                    xform.set_translation(*agent.state.pos[env_index])
+                    line.add_attr(xform)
+                    line.set_color(*color, alpha=agent._alpha)
+                    geoms.append(line)
+        
+        scoreboard_text = f"Blue: {int(self.score_blue/(self.n_blue_agents**(1-self.ai_blue_agents)))}  Red: {int(self.score_red/(self.n_blue_agents** (1-self.ai_blue_agents)))}"
+        #current workaround since reward is centralised for ai agents (only one reward per step is calculated) and for manual agents is not (so score is incremented for each agent)
+        #print(self.score_red)
+        #print(self.n_blue_agents**(1-self.ai_blue_agents))
+        if hasattr(self, "timer_text"):
+            scoreboard_text += f"   {self.timer_text}"
+        scoreboard_y = self.pitch_width / 2 + 400 / scaler  # 400/scaler for extra offset
+        scoreboard_geom = make_text(
+            text=scoreboard_text,
+            x=0,
+            y=scoreboard_y,
+            font_size=32,
+            color=(0, 0, 0, 1)
+        )
+        geoms.append(scoreboard_geom)
 
         return geoms
 
@@ -2257,7 +2279,7 @@ class AgentPolicy:
                 self.shoot_at_goal(agent)
                # print("waewaewawE!\n")
             #elif is_closest.any():
-            else:    
+            else:
                 self.dribble_policy(agent)
             
 
@@ -2267,7 +2289,7 @@ class AgentPolicy:
             control = torch.clamp(control, min=-agent.u_range, max=agent.u_range)
             agent.action.u = control * agent.action.u_multiplier_tensor.unsqueeze(
                 0
-            ).expand(*control.shape) #obsolete when agents are same size and speed TODO remove the speed and size scaling leftovers from scenario
+            ).expand(*control.shape) #obsolete when agents are same size and speed TODO remove the speed and size scaling leftovers from scenario //not prio
             #print(agent.action.u)
             #print(control)
             #print (agent.name)

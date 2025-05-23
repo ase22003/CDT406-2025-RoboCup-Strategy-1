@@ -141,17 +141,17 @@ function look_data_parse(raw::String)
 				Physical(
 						 Point(
 							   parse(Float16, raw[i+1]),
-						 	   parse(Float16, raw[i+2])),
+						 	   -parse(Float16, raw[i+2])),
 						  Velocity(
 								   parse(Float16, raw[i+3]),
-						  		   parse(Float16, raw[i+4])),
+						  		   -parse(Float16, raw[i+4])),
 						  Float16(0))
 			i+=5
 		elseif raw[i] == "player"
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.x  = parse(Float16, raw[i+3])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.position.y  = -parse(Float16, raw[i+4])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dx = parse(Float16, raw[i+6])
-			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dy = parse(Float16, raw[i+7])
+			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.velocity.dy = -parse(Float16, raw[i+7])
 			global field_state[raw[i+1]].players[parse(UInt8, raw[i+2])].physical.angle       = parse(Float16, raw[i+5])
 			i+=9
 		else
@@ -169,12 +169,13 @@ function create_player(id::UInt8, name::String)::Player
 		info["role"] = "goalie"
 	end
 	info["status"] = :undone
+	info["params"] = [0, 0, 0, 0, 0, 0]
 	Player(
 		id,
 		sock,
 		name,
 		Physical(Point(0, 0), Velocity(0, 0), 0),
-		info
+		info,
 	)
 end
 
@@ -186,43 +187,14 @@ function create_team(name::String, side::Symbol)::Team
 	)
 end
 #}}}
-#{{{LOW LEVEL SKILLS
-#{{{REDUNDANT
-#=
-function PLAYER_goto(player::Player, position::Point, margin::UInt8, angle_precision::UInt8, break_distance::UInt8)
-	Threads.@spawn begin
-		while true
-			Δx = player.physical.position.x - position.x
-			Δy = player.physical.position.y + position.y
-			dist = hypot(Δx, Δy) 
-			#println("$(player.id): x=$(player.physical.position.x), y=$(player.physical.position.y), Δx=$Δx, Δy=$Δy, hyp=$dist")
-			if dist < margin
-				#println("$(player.id) END")
-				return #tell the parent process?
-			end
-			
-			θ = rad2deg(atan((position.y + player.physical.position.y), (position.x - player.physical.position.x)))
-			pangle = -player.physical.angle
-			Δθ = mod(pangle - θ + 180, 360) - 180
-			if abs(Δθ) > angle_precision
-				#send_command(PLAYER_PORT, player.port, "(turn $(Δθ/2))")
-				#sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN+WAIT_FOR_UPDATES)
-				send_command_primitive(PLAYER_PORT, player.port, "(turn $(Δθ))")
-				sleep(COMMAND_UPDATE_DELAY)
-			end
-			#send_command(PLAYER_PORT, player.port, "(dash 100)")
-			#sleep(COMMAND_UPDATE_DELAY+UPDATE_DELAY_MARGIN+WAIT_FOR_UPDATES)
-			if dist < break_distance
-				send_command_primitive(PLAYER_PORT, player.port, "(dash 20)")
-			else
-				send_command_primitive(PLAYER_PORT, player.port, "(dash 100)")
-			end
-			sleep(COMMAND_UPDATE_DELAY)
-		end
-	end
+#{{{HELPER
+function eucdist(A::Point, B::Point)
+	Δx = A.x - B.x
+	Δy = A.y - B.y
+	hypot(Δx, Δy)
 end
-=#
 #}}}
+#{{{SKILLS
 #all functions take two steps (0.2 seconds) and return either :done or :undone
 #they are all aiming *toward* a goal, *not** to complete it
 function PLAYER_idle(_)::Symbol
@@ -251,41 +223,88 @@ function PLAYER_go_toward(player::Player, position::Point, margin::Int, angle_pr
 		send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ/2))")
 		sleep(COMMAND_UPDATE_DELAY)
 		if dist < break_distance
-			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash $break_amount)")
 		else
 			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
 		end
 	else
 		if dist < break_distance
-			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash $break_amount)")
 		else
 			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
 		end
 		sleep(COMMAND_UPDATE_DELAY)
 		if dist < break_distance
-			send_command_primitive(PLAYER_PORT, player.sock, "(dash 20)")
+			send_command_primitive(PLAYER_PORT, player.sock, "(dash $break_amount)")
 		else
 			send_command_primitive(PLAYER_PORT, player.sock, "(dash 100)")
 		end
 	end
-	:undone #not finished with task yet
+
+	return :undone #not finished with task yet
 end
 function PLAYER_kick(player::Player, direction::Int, power::Int)
+	#=
 	tx = field_state["ball"].position.x #current ball position
 	ty = field_state["ball"].position.y
 	px = player.physical.position.x #current player position
 	py = player.physical.position.y
-
+	=#
+	
 	#θ = rad2deg(atan((ty - py), (tx - px)))
 	θ = direction
 	pangle = -player.physical.angle
-	Δθ = mod(pangle - θ + 180, 360) - 180
+	#Δθ = mod(pangle - θ + 180, 360) - 180
 	
-	send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ))")
+	#send_command_primitive(PLAYER_PORT, player.sock, "(turn $(Δθ))")
+	send_command_primitive(PLAYER_PORT, player.sock, "(turn $(pangle))")
 	sleep(COMMAND_UPDATE_DELAY)
 	send_command_primitive(PLAYER_PORT, player.sock, "(kick $power $direction)")
 
 	:done
+end
+function PLAYER_kick_ball(player::Player, direction::Int, power::Int)
+	#=
+	tx = field_state["ball"].position.x #current ball position
+	ty = field_state["ball"].position.y
+	=#
+
+	#params = (1, 15, 3, 50)
+	params = player.info["params"][1:4]
+	status::Symbol = PLAYER_go_toward(player, field_state["ball"].position, params...)
+	
+	if status == :done
+		PLAYER_kick(player, direction, power)
+		return :done
+	end
+	:undone
+end
+#function PLAYER_kick_toward(player::Player, position::Point, margin::Int, kick_distance_power_scale::Int)
+function PLAYER_kick_toward(player::Player, position::Point)
+	params = player.info["params"][5:6]
+	margin = params[1]
+	if eucdist(field_state["ball"].position, position) <= margin
+		return :done
+	end
+	
+	tx = position.x
+	ty = position.y
+	ball_pos = field_state["ball"].position
+	px = ball_pos.x
+	py = ball_pos.y
+	θ = floor(Int, rad2deg(atan((ty - py), (tx - px))))
+	Δx = px - tx
+	Δy = py - ty
+	dist = hypot(Δx, Δy)
+
+	kick_distance_power_scale = params[2]
+	#proportional
+	c = floor(Int, (kick_distance_power_scale / 100.0) * dist)
+	power = c > 100 ? 100 : c
+	
+	PLAYER_kick_ball(player, -θ, power)
+	
+	:undone
 end
 #}}}
 #{{{EXECUTOR
@@ -324,6 +343,7 @@ end
 #}}}
 #{{{MASTER
 function master()
+#{{{MASTER PREAMBLE
 	teamnames = ("Team_A", "Team_B")
 
 	#init trainer
@@ -364,25 +384,30 @@ function master()
 		side = 1
 	end
 	=#
-	
+#}}}
 
 	#run game
+	send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+	sleep(1)
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
 	
 	Threads.@spawn executor(teams[1], agent_instructions_A)
 	Threads.@spawn executor(teams[2], agent_instructions_B)
 
-
-
-	update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
-	sleep(1)
-	while field_state[teamnames[1]].players[1].info["status"] == :undone
-		sleep(COMMAND_UPDATE_DELAY)
+	for team ∈ teams
+		for player ∈ team.players
+			player.info["params"] = [1, 15, 6, 50, 5, 300]
+		end
 	end
-	update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
 
-
-
+	side = :LEFT
+	for team ∈ teams
+		for i ∈ 1:6
+			update_player_instruction(team, i, PLAYER_kick_toward, (field_state["goal"][side],))
+		end
+		side = :RIGHT
+	end
+	
 	sleep(60)
 
 	#kill game

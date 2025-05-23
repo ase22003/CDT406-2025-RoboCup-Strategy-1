@@ -321,8 +321,6 @@ end
 #}}}
 #{{{DECISION MAKER
 
-#}}}
-#{{{MASTER
 function master()
 	teamnames = ("Team_A", "Team_B")
 
@@ -354,17 +352,6 @@ function master()
 		Point(15,-20)
 	)
 	
-	#go to starting positions
-	#=
-	side = Int8(-1)
-	for j ∈ 1:2
-		for i ∈ 1:NUMBER_OF_PLAYERS
-				update_player_instruction(teams[j], i, PLAYER_go_toward, (Point(starting_positions[i].x*side, starting_positions[i].y), UInt8(1), UInt8(10), UInt8(3), UInt8(50)))
-		end
-		side = 1
-	end
-	=#
-	
 
 	#run game
 	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
@@ -372,15 +359,154 @@ function master()
 	Threads.@spawn executor(teams[1], agent_instructions_A)
 	Threads.@spawn executor(teams[2], agent_instructions_B)
 
-
-
-	update_player_instruction(teams[1], 1, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
-	sleep(1)
-	while field_state[teamnames[1]].players[1].info["status"] == :undone
-		sleep(COMMAND_UPDATE_DELAY)
+	#go to starting positions
+	side = Int8(-1)
+	for j ∈ 1:2
+		for i ∈ 1:NUMBER_OF_PLAYERS
+				update_player_instruction(teams[j], i, PLAYER_go_toward, (Point(starting_positions[i].x*side, starting_positions[i].y), 1, 10, 3, 50))
+		end
+		side = 1
 	end
-	update_player_instruction(teams[1], 1, PLAYER_kick, (0, 100))
+	sleep(15)
+	
 
+	
+	# all players move to kick the ball
+	while true
+
+    	while true
+			if field_state["ball"].position.x > 52.5   
+				field_state["ball"].position = Point(0, 0)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+			end 
+			for j ∈ 1:2
+     			for i ∈ 1:NUMBER_OF_PLAYERS
+         			update_player_instruction(teams[j], i, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+     			end
+			end
+        	sleep(1)
+        	if field_state[teamnames[1]].players[1].info["status"] == :done
+            	break
+        	end
+    	end
+    	# Kick towards goal
+		for j ∈ 1:2
+			for i ∈ 1:NUMBER_OF_PLAYERS
+    			update_player_instruction(teams[j], i, PLAYER_kick, (0, 100))
+    			sleep(1)
+			end
+		end
+		sleep(1)
+
+	
+	end
+	
+
+
+	sleep(120)
+
+	#kill game
+	for team ∈ teams
+		for player ∈ team.players
+    		die(player.sock)
+		end
+	end
+	die(trainer)
+end
+
+function scen1v1() #Scenario 1: one from each team tries to score
+	teamnames = ("Team_A", "Team_B")
+
+	#init trainer
+	trainer = Client(TRAINER_PORT)
+	GLOBAL_TRAINER_SOCKET = trainer
+	send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
+	start_data_update_loop(trainer)
+	sleep(1)
+	
+	#init teams
+	teams = (create_team(teamnames[1], :RIGHT),
+			 create_team(teamnames[2], :LEFT))
+	field_state[teamnames[1]] = teams[1]
+	field_state[teamnames[2]] = teams[2]
+
+	agent_instructions = (agent_instructions_A, agent_instructions_B)
+
+
+	#define starting positions
+	starting_positions = (
+		Point(50,0), #goalie
+		Point(15,20),
+		Point(15,10),
+		Point(15,0), ######### ADD/DEFINE "KICKER" POSITION
+		Point(15,-10),
+		Point(15,-20)
+	)
+	
+
+	#run game
+	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+	Threads.@spawn executor(teams[1], agent_instructions_A)
+	Threads.@spawn executor(teams[2], agent_instructions_B)
+
+	#go to starting positions
+	side = Int8(-1)
+	for j ∈ 1:2
+
+				update_player_instruction(teams[j], 4, PLAYER_go_toward, (Point(starting_positions[4].x*side, starting_positions[4].y), 1, 10, 3, 50))
+
+		side = 1
+	end
+	sleep(15)
+	
+
+	
+	while true
+
+
+		# Both players go toward the ball until one reaches it
+		while true
+			# Ball 
+			if field_state["ball"].position.x > 52.5 || field_state["ball"].position.x < -52.5  
+				field_state["ball"].position = Point(0, 0)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+					side = Int8(-1)
+					for j ∈ 1:2
+
+								update_player_instruction(teams[j], 4, PLAYER_go_toward, (Point(starting_positions[4].x*side, starting_positions[4].y), 1, 10, 3, 50))
+
+						side = 1
+					end
+				sleep(15)
+			end 
+			if field_state["ball"].position.y > 34 
+				field_state["ball"].position = Point(field_state["ball"].position.x, -32)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) $(field_state["ball"].position.x) -32)")
+			elseif field_state["ball"].position.y < -34
+				field_state["ball"].position = Point(field_state["ball"].position.x, 32)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) $(field_state["ball"].position.x) 32)")
+			end
+			
+			# Players
+			for j ∈ 1:2
+				update_player_instruction(teams[j], 4, PLAYER_go_toward, (field_state["ball"].position, 1, 15, 2, 50))
+			end
+			sleep(1)
+			# Check if either player has reached the ball
+			if field_state[teamnames[1]].players[4].info["status"] == :done
+				update_player_instruction(teams[1], 4, PLAYER_kick, (0, 100))
+				break
+				
+			elseif field_state[teamnames[2]].players[4].info["status"] == :done
+				update_player_instruction(teams[2], 4, PLAYER_kick, (180, 100))
+				break
+			end
+		end
+		sleep(1)
+		
+	end
+	
 
 
 	sleep(60)
@@ -393,8 +519,90 @@ function master()
 	end
 	die(trainer)
 end
+
+function scenPassing() #Scenario 2: two from same team pass the ball
+	teamnames = ("Team_A", "Team_B")
+
+	#init trainer
+	trainer = Client(TRAINER_PORT)
+	GLOBAL_TRAINER_SOCKET = trainer
+	send_command(TRAINER_PORT, trainer, "(init $(teamnames[1]) (version $VERSION))")
+	start_data_update_loop(trainer)
+	sleep(1)
+	
+	#init teams
+	teams = (create_team(teamnames[1], :RIGHT),
+			 create_team(teamnames[2], :LEFT))
+	field_state[teamnames[1]] = teams[1]
+	field_state[teamnames[2]] = teams[2]
+
+	agent_instructions = (agent_instructions_A, agent_instructions_B)
+
+
+	#define starting positions
+	starting_positions = (
+		Point(-5, 0), 
+		Point(15,0),
+	)
+	
+
+	#run game
+	send_command(TRAINER_PORT, trainer, "(change_mode play_on)")
+	send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+	Threads.@spawn executor(teams[1], agent_instructions_A)
+
+	#go to starting positions
+
+
+	update_player_instruction(teams[1], 1, PLAYER_go_toward, (Point(starting_positions[1].x, starting_positions[1].y), 1, 10, 3, 50))
+	update_player_instruction(teams[1], 2, PLAYER_go_toward, (Point(starting_positions[2].x, starting_positions[2].y), 1, 10, 3, 50))
+
+	sleep(15)
+	
+
+	
+	while true
+		
+		while true
+			if field_state["ball"].position.x > 52.5 || field_state["ball"].position.x < -52.5  
+				field_state["ball"].position = Point(0, 0)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) 0 0)")
+				update_player_instruction(teams[1], 1, PLAYER_go_toward, (Point(starting_positions[1].x, starting_positions[1].y), 1, 10, 3, 50))
+				update_player_instruction(teams[1], 2, PLAYER_go_toward, (Point(starting_positions[2].x, starting_positions[2].y), 1, 10, 3, 50))
+				sleep(15)
+			end 
+			if field_state["ball"].position.y > 34 
+				field_state["ball"].position = Point(field_state["ball"].position.x, -32)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) $(field_state["ball"].position.x) -32)")
+			elseif field_state["ball"].position.y < -34
+				field_state["ball"].position = Point(field_state["ball"].position.x, 32)     
+				send_command(TRAINER_PORT, trainer, "(move (ball) $(field_state["ball"].position.x) 32)")
+			end
+			
+			
+
+
+
+		end
+		sleep(1)
+	end
+	
+
+	sleep(60)
+
+	#kill game
+	for team ∈ teams
+		for player ∈ team.players
+    		die(player.sock)
+		end
+	end
+	die(trainer)
+end
+
 #}}}
 #}}}
 #{{{PROGRAM
-master()
+#master()
+scen1v1()
+#scenPassing()
 #}}}

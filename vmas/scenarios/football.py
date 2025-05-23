@@ -280,7 +280,7 @@ class Scenario(BaseScenario):
             agent = Agent(
                 name=f"agent_red_{i}",
                 shape=Sphere(radius=self.agent_size),
-                action_script=self.red_controller.run if self.ai_red_agents else None, #AAAAAAAAAAAAAAAAAAAAAAAAAaaa
+                action_script=self.red_controller.run_old if self.ai_red_agents else None, #AAAAAAAAAAAAAAAAAAAAAAAAAaaa
                 u_multiplier=[self.u_multiplier, self.u_multiplier]
                 if not self.enable_shooting
                 else [
@@ -1101,12 +1101,14 @@ class Scenario(BaseScenario):
     def process_action(self, agent: Agent):
         if agent is self.ball:
             return
+        if "red" in agent.name:
+            return
         #TODO: fix agent.action.u[..., -1] scaling and remove get_u workaround //not prio
         #agent.action.u[..., -1] was allways 0 but okwworks in interactive rendering. Other values are scaling from [-1,1] to [-0.2,0.2]
 
         if hasattr(self, 'interactive_env') and self.interactive_env is not None:
             current_u = self.interactive_env.get_u()
-            print(f"Current interactive actions: {current_u[-1]}")
+            #print(f"Current interactive actions: {current_u[-1]}")
 
         blue = agent in self.blue_agents
         if agent.action_script is None and not blue:  # Non AI
@@ -1158,12 +1160,12 @@ class Scenario(BaseScenario):
             if(self.ai_blue_agents):
                 shoot_force[..., X] = (
                     #current_u[-1]
-                    agent.action.u[..., 3] * 2.67 * self.u_shoot_multiplier
+                    agent.action.u[..., 3] #* 2.67 * self.u_shoot_multiplier
                 )
             #uncoment this if testing manually
             else:
                 shoot_force[..., X] = (
-                    current_u[-1]* 2.67 * self.u_shoot_multiplier
+                    current_u[-1] #* 2.67 * self.u_shoot_multiplier
                 )
             shoot_force = TorchUtils.rotate_vector(shoot_force, agent.state.rot)
             agent.shoot_force = shoot_force
@@ -1176,7 +1178,7 @@ class Scenario(BaseScenario):
                 shoot_force,
                 0.0,
             )
-
+            
             self.ball.kicking_action += shoot_force
             agent.action.u = agent.action.u[:, :-1]
 
@@ -1926,7 +1928,8 @@ class Scenario(BaseScenario):
         # Agent rotation and shooting
         if self.enable_shooting:
             combined = self.blue_agents + self.red_agents
-            for agent in combined:
+            #for agent in combined:
+            for agent in self.blue_agents: #no shooting for red
                 color = agent.color
                 if self.render_shooting_angle:
                     
@@ -2242,13 +2245,20 @@ class AgentPolicy:
 
     def passing_policy(self, agent):
         possession_mask = self.agent_possession[agent]
-        otheragent = None
-        for a in self.teammates:
-            if a != agent:
-                otheragent = a
-                break
-        # min_dist_mask = (agent.state.pos - otheragent.state.pos).norm(dim=-1) > self.max_shot_dist * 0.75
-        self.shoot(agent, otheragent.state.pos, env_index=possession_mask)
+        teammates = [a for a in self.teammates if a != agent]
+        teammate_positions = torch.stack([a.state.pos for a in teammates], dim=1)  # [batch, n_teammates, 2]
+        dists_to_teammates = torch.linalg.vector_norm(teammate_positions - agent.state.pos.unsqueeze(1), dim=-1)
+        # Get closest teammate indices
+        min_teammate_dist, min_teammate_idx = dists_to_teammates.min(dim=1)
+        closest_teammate = [teammates[idx] for idx in min_teammate_idx.cpu().numpy()]
+        closest_teammate_names = [t.name for t in closest_teammate]
+        closest_teammate_pos = teammate_positions[torch.arange(teammate_positions.size(0)), min_teammate_idx]
+
+        #print(f"Closest teammate(s): {closest_teammate_names}- {closest_teammate_pos} distance {agent.state.pos - closest_teammate_pos}")
+        #time.sleep(2)
+        #print(closest_teammate_pos)
+        # min_dist_mask = (agent.state.pos - closest_teammate_pos).norm(dim=-1) > self.max_shot_dist * 0.75
+        self.pass_ball(agent, closest_teammate_pos, env_index=possession_mask)
         move_mask = ~possession_mask
         best_pos = self.check_better_positions(agent, env_index=move_mask)
         self.go_to(
@@ -2273,8 +2283,8 @@ class AgentPolicy:
             if "0" in agent.name:
                 self.team_disps = {}
                 self.check_possession()
-            #if self.should_pass(agent):
-            #    self.passing_policy(agent) #fix it so it passes correctly
+            if self.should_pass(agent):
+                self.passing_policy(agent) #fix it so it passes correctly
             if self.should_shoot(agent):
                 self.shoot_at_goal(agent)
                # print("waewaewawE!\n")
@@ -2295,6 +2305,25 @@ class AgentPolicy:
             #print (agent.name)
             #print ("\n"*5)
             #time.sleep(1)
+        else:
+            agent.action.u = torch.zeros(
+                self.world.batch_dim,
+                agent.action_size,
+                device=self.world.device,
+                dtype=torch.float,
+            )
+
+    def run_old(self, agent, world):
+        if not self.disabled:
+            if "0" in agent.name:
+                self.team_disps = {}
+                self.check_possession()
+            self.dribble_policy(agent)
+            control = self.get_action(agent)
+            control = torch.clamp(control, min=-agent.u_range, max=agent.u_range)
+            agent.action.u = control * agent.action.u_multiplier_tensor.unsqueeze(
+                0
+            ).expand(*control.shape)
         else:
             agent.action.u = torch.zeros(
                 self.world.batch_dim,
@@ -2371,6 +2400,8 @@ class AgentPolicy:
         shoot_angle = torch.atan2(ball_dir[:,Y], ball_dir[:,X])
         self.objectives[agent]["target_ang"] = shoot_angle
 
+
+
     def shoot(self, agent, pos, env_index=Ellipsis):
         agent_pos = agent.state.pos
         ball_disp = self.ball.state.pos - agent_pos
@@ -2386,9 +2417,9 @@ class AgentPolicy:
             within_range_mask & ball_within_angle_mask & rot_within_angle_mask
         )
         # Pre-shooting
-        
+
         self.objectives[agent]["target_ang"][env_index] = torch.atan2(target_disp[:, 1], target_disp[:, 0])[env_index]
-        
+
         self.dribble(agent, pos, env_index=env_index)
 
         # Shooting
@@ -2398,6 +2429,40 @@ class AgentPolicy:
         ] = torch.minimum(
             target_dist[shooting_mask] / self.max_shot_dist, torch.tensor(1.0)
         )
+
+    def pass_ball(self, agent, target_pos, env_index=Ellipsis):
+        agent_pos = agent.state.pos
+        ball_disp = self.ball.state.pos - agent_pos
+        ball_dist = ball_disp.norm(dim=-1)
+        
+        # Calculate direction to target and rotate it by agent's current rotation
+        target_disp = target_pos - agent_pos
+        target_dir = target_disp / (target_disp.norm(dim=-1, keepdim=True) + 1e-6)
+        rotated_force = TorchUtils.rotate_vector(target_dir, agent.state.rot.squeeze(-1))
+
+        # Use shooting force logic: scale by action input (u[3]) and max shot power
+        
+        pass_power = torch.clamp(
+            torch.abs(agent.action.u[..., 1]* 0 + 1) * self.max_shot_dist,
+            max=self.max_shot_dist
+        )
+        shoot_force = rotated_force * pass_power.unsqueeze(-1)
+        print(shoot_force)
+        # Apply conditions (ball within range)
+        pass_mask = ball_dist <= self.shooting_radius
+        valid_passes = self.combine_mask(pass_mask, env_index)
+        
+        # Update objectives
+        self.objectives[agent]["shot_power"][valid_passes] = (
+            pass_power[valid_passes] / self.max_shot_dist  # Normalized to [0, 1]
+        )
+        
+        # Directly apply force to ball (mirrors process_action shooting logic)
+        self.ball.kicking_action[valid_passes] += shoot_force[valid_passes]
+        
+        # Optional: disable dribbling during pass
+        agent.shoot_force = shoot_force  
+        #print(f"Passed with power: {self.objectives[agent]['shot_power'][valid_passes]}")
 
 
 
@@ -2776,7 +2841,6 @@ class AgentPolicy:
 
         teammate_positions = torch.stack([a.state.pos for a in teammates], dim=1)  # [batch, n_teammates, 2]
         dists_to_teammates = torch.linalg.vector_norm(teammate_positions - agent_pos.unsqueeze(1), dim=-1)
-        
         # Get closest teammate indices
         min_teammate_dist, min_teammate_idx = dists_to_teammates.min(dim=1)
         
@@ -2790,7 +2854,7 @@ class AgentPolicy:
         
         # Revised passing logic
         teammate_closer = goal_dist < torch.linalg.vector_norm(agent_pos - goal_pos, dim=-1)
-        close_enough = min_teammate_dist < 0.5
+        close_enough = min_teammate_dist < 0.2
         can_control = ball_dist < self.shooting_radius
         not_shooting = ~self.should_shoot(agent)
         

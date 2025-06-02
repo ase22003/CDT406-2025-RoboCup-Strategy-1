@@ -44,5 +44,15 @@ A \textbf{multi-agent} approach would assign each robot its own agent, possibly 
 
 Our initial focus will likely lean toward the single-agent model to reduce complexity during development. However, we may transition to or experiment with a multi-agent setup depending on performance and scalability needs.
 
+\subsection{Reinforcement Learning}
+Our main approach involved training a multi-agent reinforcement learning policy for our RoboCup SSL simulation using the VMAS framework, adapted to the RoboCup SSL specifications.
+We used Proximal Policy Optimization (PPO) with centralized critic.
+We set out to train accross multiple scenarios, including "defensive", "ball at centre", "offensive" scenarios with further differentiation.
+Varying the number of own players and enemy players, the distance to the ball, distance to the goal.
+
+The main reason for not just training on full games is that the rewards are more sparse in a full game setup.
+
+It's easier to train agents to shoot a goal when the players are in situations that don't require many actions to shoot a goal.
+
 %\subsection{Continuous action-spaces}
 %In the previous section on DQN, the loss function for the network is explained, wherein the action with the largest reward was chosen: \(\underset {a'} {\text{max}} Q(s',a';\theta^-_i)\). This -- as opposed to the case with soccer robots -- presumes the action space to be discrete, finite and meaningfully separate. This prompts a modification to the method suiting our needs. We therefore propose viewing the action space \(\mathcal{A}\) as  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

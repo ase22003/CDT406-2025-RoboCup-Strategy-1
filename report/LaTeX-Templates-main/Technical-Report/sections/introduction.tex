@@ -1,14 +1,14 @@
 \section{Introduction}
 \label{section:intro}
 
-The RoboCup \cite{RoboCupSSL} is a tournament where different teams 
+The RoboCup is a tournament where different teams 
 compete against each other with soccer-playing robots. The RoboCup 
 Federation arranges several types of leagues where every league uses 
 different types of robots in different shapes and sizes. Overall, this 
 tournament aims to advance in the scientific field of mobile robots. 
 This project will focus on the Small Size League (SSL), division B in 
 particular. This specific league uses a centralised vision system that 
-gives allows all robots to get information about the position of the 
+allows all robots to get information about the position of the 
 other robots and the ball at all times. In that way, developers can focus 
 all efforts on the strategical side of the game which makes the SSL 
 perfect for newcomers in the RoboCup. In the SSL division B teams 
@@ -21,12 +21,20 @@ by the members of each team. The playing field is 10.4 by 7.4 meters
 with a playing area of 9 by 6 meters and the game is played with an 
 orange golf ball. The rules of this league are similar to regular soccer 
 but with several modifications. For example the rules include yellow 
-and red cards, free kicks and penalties but also rules like maximum 
-shooting speed and maximum dribbling length. 
+and red cards, free kicks and penalties just like in real soccer but 
+also rules like maximum shooting speed and maximum dribbling length\cite{RoboCupSSL}. 
 
-The aim of this project is to develop a system that works well in 
+The aim of this project is to develop a system of robots that works well in 
 simulation. That will be done by creating an AI system that can 
 coordinate all six robots, handle the ball, score goals and defend 
-against the opponents. In the long term the models we develop could 
+against the opponents. To create this AI system two different approaches 
+will be tested, one of them being a type of reinforcement learning and the 
+other one being a genetic algorithm. In the long term the models we develop could 
 be further developed and used in other works related to both RoboCup 
-and other areas. In this paper we aim to answer the question ADD RQ's HERE.
+and other areas. In this paper we aim to answer the following research questions:
+
+\begin{itemize}
+        \item Why is it difficult for RL agents to learn complex skills (like shooting and passing) beyond simple navigation?
+        \item How does skills developed with GA perform vs hard-coded skills?
+        \item How do simulation inaccuracies and bugs affect learning and agent performance? 
+\end{itemize}

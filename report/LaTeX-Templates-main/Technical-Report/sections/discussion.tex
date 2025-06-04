@@ -5,8 +5,7 @@
 The results we achieved with applying PPO to our VMAS Robocup SSL setup were not as expected.
 In this section, We will lay out why we think the results were unsatisfactory and what we could do differently to train our agent to achieve coordinated, cooperative play and, most importantly, score goals and defend effectively.
 
-First and foremost, we would have to create a simulator where the basic mechanics work reliably. Mostly, shooting and passing need updating.
-Debugging step-by-step revealed that shooting and passing were reliant on the robot somehow getting into the perfect position and having the perfect angle.
+First and foremost, we would need to create a simulator where the basic mechanics work reliably. In particular, shooting and passing need improvement. Step-by-step debugging showed that these actions often require the robot to be in the exact right position and angle.
 
 Once this is achieved, we also have lots of other ways we could improve our agent.
 

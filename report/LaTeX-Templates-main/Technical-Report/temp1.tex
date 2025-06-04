@@ -6,6 +6,9 @@
 \usepackage{geometry}
 \usepackage{mathrsfs}
 \usepackage{yfonts}
+\usepackage{tikz}
+\usepackage{forest}
+\usetikzlibrary{trees}
  \geometry{
  a4paper,
  total={170mm,257mm},
@@ -15,16 +18,13 @@
 \begin{document}
 \section{Method}
 
-The server \textit{ticks} every \(0.1\) seconds, wherewithin one command can be sent from each of the players and from the trainer. The program runs a loop in the background which sends a command from the trainer to the server continually (at each tick), requesting information about the state of the field \(S_i \in \mathcal{S}\) at that time step \(i \in \mathbb{N}\). The field state is constituted by the position and velocity vector of the ball and the positions, velocity vectors and rotations of all the players.
+The server \textit{ticks} every \(0.1\) seconds, wherewithin one command can be sent from each of the players and from the trainer. The program runs a loop in the background which sends a command from the trainer to the server continually (at each tick), requesting information about the state of the field at that time step. A state \(S_i \in \mathcal{S}\) where \(i \in \mathbb{N}\) contains the actual field state as well as the (possibly delayed) information thereabout which is known by the actors. Field-state information include the position and velocity of the ball as well as the speed, velocity and orientation of the players.
 
-%WE DON'T ACTUALLY NEED TO DESCRIBE THE STRUCTURE OF THE PROGRAM BUT ONLY HOW IT REALTES TO THE GENETIC ALGRITHM; WHAT IS THE PURPOSE OF DEFINING "TEAMS" AND MULTIPLE PLAYERS WHEN WE NEED ONLY REPRESENT THE INDIVIDUALS IN THE GENETIC ALGORITHM
-The teams are represented as set \(\mathcal{T} := \left\{ T_A, T_B \right\}\), where \(T_A = (\text{``Team\_A''}, P_{T_A})\) and \(T_B = (\text{``Team\_B''}, P_{T_B})\). \(P_T : \mathcal{I} \to \mathcal{P} \) is a function mapping a \textit{player number} \(i\in \mathcal{I} := \{1,\cdots,6\}\) to each player \(p \in \mathcal{P}\) in a given team. A player \(p\in \mathcal{P}\) is a vector \((\phi, c, f)\) where \(\phi = (x, y, \theta) \in \mathbb{R}^3\) describes the position and angle of the player; \(c \in \mathcal{C} := \mathbb{N}^6\) is a vector representing the \textit{task configuration} for that player; \(\mathcal{A} \ni f : \mathcal{S}\times \mathcal{C} \to \mathcal{S}\) is the the player's given task from a set of possible tasks \(\mathcal{A}\), all of which return within one tick.%; \(s \in \{\top,\bot\}\) represents the \textit{status} of \(f\), where \(\top\) means "the task is completed" and \(\bot\) means "the task is ongoing".
+The players are represented as a set \(\mathcal{P}=\left\{p_1,\cdots,p_{12}\right\}\). A player \(p \in \mathcal{P}\) is a pair \((c, f)\) where \(c \in \mathcal{C} := \mathbb{N}^6\) is a vector representing the \textit{skill configuration} for that player and \(f : \mathcal{S}\times \mathcal{C} \to \mathcal{S}\) is the the player's given task from a set of possible tasks \(\mathcal{A}\), all of which return within one tick.
 
-At each time step \(i\), a background process executes each player's task
-%\(F := \bigcup_{(T,i)\in\mathcal{T} \times \mathcal{I}} \pi_f(P_T(i)) \), \(F := \left\{ f_c:\mathcal{S}\to\mathcal{S} \,\middle|\, f_c = \lambda c.f\ \pi_c(P_T(i)), (f', c') \in \bigcup_{(T,i)\in\mathcal{T} \times \mathcal{I}} ( \pi_f(P_T(i)), \pi_c(P_T(i))) \right\}\), \(F := \bigcup_{(T,i)\in\mathcal{T} \times \mathcal{I}} \lambda s.\pi_f(P_T(i))(s, \pi_c(P_T(i))) \), 
+At each time step \(i\), a background process executes each player's ``configured'' task
 \[
-		F := \left\{ f_p^c \,\middle|\, f_p^c = \lambda s.f_p(s, c), f_p = \pi_f(p), c = \pi_c(p), p = P_T(i), (T,i)\in\mathcal{T} \times \mathcal{I}  \right\}
-\text{,}
+		F := \left\{ f_p^c \,\middle|\, f_p^c = \lambda s.f_p(s, c), f_p = \pi_f(p), c = \pi_c(p), p \in\mathcal{P} \right\}
 \]
 which sends commands from those players to the server, resulting in the next state 
 \[
@@ -34,10 +34,55 @@ which sends commands from those players to the server, resulting in the next sta
 					\mathfrak{U} \left( \left(\underset{f_p^c\in F}\bigcirc f_p^c\right)(S_{i-1}) \right) & : \ \text{otherwise}
 			\end{array}
 		\right.
-\] %THERE MUST BE A BETTER WAY OF ACCESSING THE PLAYER FUNCTIONS
-where \(S_0\) is the initial configuration of the game field and \(\mathfrak{U}\) is an unknown function representing collision handling and other unknown or random behaviours from the server simulation and program-server interface (such as the \textit{delayed} field information). %RANDOMNESS MAKES THE SOLUTION-FINDING MODELING HARDER -- STATISTICS AND SUCH
+\]
+where \(S_0\) is the initial configuration of the game field and \(\mathfrak{U}\) is an unknown function representing collision handling and other unknown behaviours of the server simulation and program-server interface (such as the delayed field information). %RANDOMNESS MAKES THE SOLUTION-FINDING MODELING HARDER -- STATISTICS AND SUCH
 
 [ADD INFO ABOUT STRUCTURE OF BT/f AND THE DERIVATION THEREOF]
+\begin{figure}[tbp]
+\centering
+\begin{forest}
+  for tree={draw},
+		[Ø
+			%[\(\to\)
+				[?
+					[\textit{Ball near location?}]
+					[\(\to\)
+						[?
+							[\textit{Player near ball?}]
+							[\(\to\)
+								[?
+									[\textit{Player at breaking distance?}]
+									[\(\to\)
+										[?
+											[\textit{Player facing target (far)?}]
+											[\texttt{alignFar()}]
+										]
+										[\texttt{goTowardFar()}]
+									]
+								]
+								[\(\to\)
+									[?
+										[\textit{Player facing target (close)?}]
+										[\texttt{alignClose()}]
+									]
+									[\texttt{goTowardClose()}]
+								]
+							]
+						]
+						[\(\to\)
+							[?
+								[\textit{Player aligned to kick?}]
+								[\texttt{alignKick()}]
+							]
+						]
+					]
+				]
+			%]
+		]
+\end{forest}
+\caption{tree mf}
+\label{fig:gene}
+\end{figure}
 %The structure of the behaviour tree is generated by the following logic: \(\text{Kick ball} \Rightarrow \text{Close to ball} \Rightarrow \text{Go to ball}\), \(\mathscr{K} \subseteq \mathscr{C}\)
 
 Let the algebraic structure \(G\) be generated by the maps \(\mathcal{A}\) composition-wise.

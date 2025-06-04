@@ -16,11 +16,11 @@ of structure was developed for controlling NPCs (non-player characters) in games
 Modular meaning that the system consists of components that are independent and reusable, e.i. the components can be 
 tested individually or removed without changing the whole tree. Reactive, on the other hand, means that the system 
 adapts to changes in the surrounding space and can for example change its behaviour based on what is happening. The 
-structure of a BT is like a directed rooted tree with internal nodes called control flow nodes and leaf nodes called 
+structure of a BT resembles a directed rooted tree with internal nodes called control flow nodes and leaf nodes called 
 execution nodes. Each connected node are most often called parent and child where the root is the node without parents. 
 The execution of the tree starts with the root that sends signals to its children to start executing. The cild then 
 returns running when the execution is under way and then success or failure depending on whether the process could complete 
-or not. In this way the flow of tasks can be controlled\cite{BTsinAI}. 
+or not. In this way the flow of tasks can be controlled which makes BTs a useful tool when developing an AI system\cite{BTsinAI}. 
 
 \subsection{Reinforcement Learning}
 Reinforcement learning (RL) is a machine learning
@@ -66,3 +66,5 @@ optimal place to move for robots without the ball as well as the best action for
 ball. In defensive situations, algorithms were used to evaluate the threats. Both first-level and second-level 
 threats were computed in order to stop the robot with the ball to score directly and to stop threatening passing 
 options. Using these methods, the CMDragons were able to win the competition without conceding a single goal\cite{CMDragons2015}.
+Due to there succes, it can be useful to investigate if certain skills are more efficient to implement using simpler
+types of algorithms instead of using AI models. 

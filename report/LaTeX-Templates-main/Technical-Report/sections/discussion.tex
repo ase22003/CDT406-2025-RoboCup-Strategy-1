@@ -4,9 +4,6 @@
 \subsection{rcssserver}
 Although rcssserver helped producing the closest thing we had to a working strategy, the general opinion regarding rcssserver is still negative. A lot of time was spent setting up basic necessities such as the UDP connection to the server, something one would think already existed as a preset for anyone to use and not have to do themselves. Not only did that take time, once that was done we had to look through the extremely limited documentation there was. The information was very vague and left a lot of things up to the readers to figure out themselves. Complications whilst running the games also appeared, as we realized we needed proper thread management to control the flow of the game which also led to time being spent solving that problem. Due to the mentioned problems, we only managed to achieve some basic training and never got to actually apply a fully finished strategy in a real game.
 
-\subsection{Rule-Based System}
-The success of the Rule-Based System can be attributed to its relative simplicity and deterministic nature, which enabled agents to make consistent and effective decisions. Actions were selected based on the agents’ current positions on the field. While this approach may not be optimal when competing against agents powered by more advanced AI techniques, it proved highly effective against opponents that followed a predefined policy of executing the first available action. In these scenarios, the rule-based agents won every match.
-
 \subsection{Reinforcement Learning}
 The results we achieved with applying PPO to our VMAS Robocup SSL setup were not as expected.
 In this section, We will lay out why we think the results were unsatisfactory and what we could do differently to train our agent to achieve coordinated, cooperative play and, most importantly, score goals and defend effectively.
@@ -34,5 +31,8 @@ Rewards have to be considered carefully. Our shaped rewards must still align wit
 so that agents do not focus too much on subgoals at the expense of overall team performance.
 
 Due to our inconsistent results stemming from our core simulation issues, we did not include systematic evaluation and visualizations of agent performance.
+
+\subsection{Rule-Based System}
+The success of the Rule-Based System can be attributed to its relative simplicity and deterministic nature, which enabled agents to make consistent and effective decisions. Actions were selected based on the agents’ current positions on the field. While this approach may not be optimal when competing against agents powered by more advanced AI techniques, it proved highly effective against opponents that followed a predefined policy of executing the first available action. In these scenarios, the rule-based agents won every match.
 
 In future work, once the simulation inconsistencies are addressed, we plan to implement more systematic evaluation of agent performance. This would include tracking and visualizing learning curves, episode rewards, and success rates for key behaviours such as scoring and passing. These evaluation methods are necessary for diagnosing problems and refining progress on agent results.

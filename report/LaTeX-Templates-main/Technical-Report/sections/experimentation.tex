@@ -1,5 +1,8 @@
 \section{Experimentation}
 
+\subsection{rcssserver}
+rcssserver is the official simulation environment for the RoboCup SSL tournament. One of the tasks was to get a working strategy to be compatible with rcssserver so that it could be tested in a real game. The Github repository for rcssserver was cloned and set up in a virtual Linux environment by using Ubuntu. rcssserver games are run by initially connecting to a server to establish a connection between the user's computer and server. Agent movement in the game is then coordinated by the server that receives commands from the connected computer on what each agent should do. The first step was to write the code for connection establishment, which used a simple UDP connection to communicate. Once that was done, the documentation for rcssserver was read to understand built in functions and commands to control the robots. Firstly, a simple program was made to have the agents move into their starting positions. This program was then modified to produce different scenarios. A go-to-ball program was made where the sole purpose was for a single agent to go to the ball and shoot it towards the goal and repeat that once it scored. Each agent ran on their own thread, sending requests and commands to the servers independently for each agent.
+
 \subsection{Strategy Hierarchy}
 The following Hierarchy shows how we could organize Team behavior across 5 layers, from high-level strategy down to low-level execution. Each layer builds on the one above it, enabling modular, scalable control.
 

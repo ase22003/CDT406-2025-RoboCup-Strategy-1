@@ -41,7 +41,16 @@ which sends commands from those players to the server, resulting in the next sta
 where \(S_0\) is the initial configuration of the game field and \(\mathfrak{U}\) is an unknown function representing collision handling and other unknown behaviours of the server simulation and program-server interface (such as the delayed field information). %RANDOMNESS MAKES THE SOLUTION-FINDING MODELING HARDER -- STATISTICS AND SUCH
 
 \subsection{Behaviour tree}
-Let \(\Phi_\mathfrak{a}\in\Phi\) be the set of all \textit{preconditions} \((\phi, \mathfrak{a}')\in\Phi_\mathfrak{a}\) of an action \(\mathfrak{a}\in\mathfrak{A}\). A precondition of an action represents some statement about the set of all states \(\mathcal{S}\), such as ``a player cannot kick the ball unless it is near thereto'', or in other words, ``the set of all states where any agent \(p\in\mathcal{P}\) successfully kicks the ball \(\mathfrak{A} \ni \text{Kick}_p \subseteq \mathcal{S}\) is a subset to the set of all states where that player is near it \(\Phi_\text{Kick} \ni \text{NearBall}_p \subseteq \mathcal{S}\), i.e., \(\text{Kick}_p \subseteq \text{NearBall}_p\)''. The behaviour tree, shown in Figure XXXXX, is generated hereof as 
+Let \(\Phi_\mathfrak{a}\in\Phi\subseteq\mathcal{S}\) be the set of all \textit{preconditions} \(\phi\in\Phi_\mathfrak{a}\) of an action \(\mathfrak{a}\in\mathfrak{A}\). A precondition of an action represents some statement about the set of all states \(\mathcal{S}\), such as ``a player cannot kick the ball unless it is near thereto'', or in other words, ``the set of all states where any agent \(p\in\mathcal{P}\) successfully kicks the ball \(\left(\right) \ni \text{Kick}_p \subseteq \mathcal{S}\) is a subset to the set of all states where that player is near it \(\Phi_\text{Kick} \ni \text{NearBall}_p \subseteq \mathcal{S}\), i.e., \(\text{Kick}_p \subseteq \text{NearBall}_p\)''. Let \(\pi(\phi)\in\mathfrak{A}\) be the action whose execution is supposed to bring about a set of states. \(\overset{\mathfrak{a}} \Pi : \underset{\Phi_\mathfrak{a}\in\Phi} \bigcup \Phi_\mathfrak{a} \to \mathfrak{A}\). The behaviour tree, shown in Figure XXXXX, is generated hereof as
+\begin{equation}
+		P(\omega) := \left\{
+			\begin{array}{cl}
+					\left( \boxed{\to}, \left(P\left(\overset{\mathfrak{\phi}} \Pi (\omega)\right), P(\omega')\right) \right) \ \text{for any}\  \omega' \in \omega & : \ |\mathfrak{\omega}| \ge 1 \wedge \omega\in\mathfrak{A} \\
+					\left( \boxed{?}, \left(D(\omega),P\left(\overset{\mathfrak{a}} \Pi (\omega)\right)\right) \right) & : \ \omega\in\Phi \\
+					\left( D(\omega), \emptyset \right) & : \ \text{otherwise}
+			\end{array}
+		\right.
+\end{equation}
 
 \begin{figure}[tbp]
 \centering

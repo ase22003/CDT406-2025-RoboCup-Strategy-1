@@ -21,7 +21,7 @@
 \subsection{Introduction}
 The server \textit{ticks} every \(0.1\) seconds, wherewithin one command can be sent from each of the players and from the trainer. The program runs a loop in the background which sends a command from the trainer to the server continually (at each tick), requesting information about the state of the field at that time step. A state \(S_i \in \mathcal{S}\) where \(i \in \mathbb{N}\) contains the actual field state as well as the (possibly delayed) information thereabout which is known by the actors. Field-state information include the position and velocity of the ball as well as the speed, velocity and orientation of the players.
 
-The players are represented as a set \(\mathcal{P}=\left\{p_1,\cdots,p_{12}\right\}\). A player \(p \in \mathcal{P}\) is a pair \((c, f)\) where \(c \in \mathcal{C} := \mathbb{N}^6\) is a vector representing the \textit{skill configuration} for that player and \(f : \mathcal{S}\times \mathcal{C} \to \mathcal{S}\) is the the player's given task from a set of possible tasks \(\mathcal{A}\), all of which return within one tick.
+REDEFINE A! The players are represented as a set \(\mathcal{P}=\left\{p_1,\cdots,p_{12}\right\}\). A player \(p \in \mathcal{P}\) is a pair \((c, f)\) where \(c \in \mathcal{C} := \mathbb{N}^6\) is a vector representing the \textit{skill configuration} for that player and \(f : \mathcal{S}\times \mathcal{C} \to \mathcal{S}\) is the the player's given task from a set of possible tasks \(\mathcal{A}\), all of which return within one tick.
 
 At each time step \(i\), a background process executes each player's ``configured'' task
 \[
@@ -41,16 +41,23 @@ which sends commands from those players to the server, resulting in the next sta
 where \(S_0\) is the initial configuration of the game field and \(\mathfrak{U}\) is an unknown function representing collision handling and other unknown behaviours of the server simulation and program-server interface (such as the delayed field information). %RANDOMNESS MAKES THE SOLUTION-FINDING MODELING HARDER -- STATISTICS AND SUCH
 
 \subsection{Behaviour tree}
-Let \(\Phi_\mathfrak{a}\in\Phi\subseteq\mathcal{S}\) be the set of all \textit{preconditions} \(\phi\in\Phi_\mathfrak{a}\) of an action \(\mathfrak{a}\in\mathfrak{A}\). A precondition of an action represents some statement about the set of all states \(\mathcal{S}\), such as ``a player cannot kick the ball unless it is near thereto'', or in other words, ``the set of all states where any agent \(p\in\mathcal{P}\) successfully kicks the ball \(\left(\right) \ni \text{Kick}_p \subseteq \mathcal{S}\) is a subset to the set of all states where that player is near it \(\Phi_\text{Kick} \ni \text{NearBall}_p \subseteq \mathcal{S}\), i.e., \(\text{Kick}_p \subseteq \text{NearBall}_p\)''. Let \(\pi(\phi)\in\mathfrak{A}\) be the action whose execution is supposed to bring about a set of states. \(\overset{\mathfrak{a}} \Pi : \underset{\Phi_\mathfrak{a}\in\Phi} \bigcup \Phi_\mathfrak{a} \to \mathfrak{A}\). The behaviour tree, shown in Figure XXXXX, is generated hereof as
+REWRITE THIS PARAGRAPH! Let \(\Phi_\mathfrak{a}\in\Phi\subseteq\mathcal{S}\) be the set of all \textit{preconditional states} (or \textit{preconditions}) \(\phi\in\Phi_\mathfrak{a}\) of an action \(\mathfrak{a}\in\mathfrak{A}\). A precondition of an action represents some statement about the set of all states \(\mathcal{S}\), such as ``a player cannot kick the ball unless it is near thereto'', or in other words, ``the set of all states where any agent \(p\in\mathcal{P}\) successfully kicks the ball \(\left(\right) \ni \text{Kick}_p \subseteq \mathcal{S}\) is a subset to the set of all states where that player is near it \(\Phi_\text{Kick} \ni \text{NearBall}_p \subseteq \mathcal{S}\), i.e., \(\text{Kick}_p \subseteq \text{NearBall}_p\)''. Let \(\pi(\phi)\in\mathfrak{A}\) be the action whose execution is supposed to bring about a set of states. \(\overset{\mathfrak{a}} \Pi : \underset{\Phi_\mathfrak{a}\in\Phi} \bigcup \Phi_\mathfrak{a} \to \mathfrak{A}\).
+
+An action \(\mathfrak{a}\in\mathfrak{A}\) is either a symbol refering to some implemented function inside the program or it is a set of other actions in \(\mathfrak{A}\). \(\overset{\phi}\Pi : \mathfrak{A} \to \Phi\) is a map linking an action to its set of preconditional states. \(\overset{\mathfrak{a}}\Pi : \Phi \to \mathfrak{A}\) is a map linking preconditional states to the action whose execution is supposed to lead thereto.
+
+A node of the behaviour tree is represented as a pair \(\langle \mathfrak{t}, \beta \rangle\) where \(\mathfrak{t}\in\mathfrak{T}\) is the \textit{type} of node -- sequence, selector, inquirery or action -- and \(\beta\) is a vector (from left to right) of the nodes' children. The function \(\text{BT}:\Phi\cup\mathfrak{A} \to \mathscr{B}\) (where \(\mathscr{B}\) is the set of all behaviour trees) generates the appropriate behaviour tree for an action given its definition and preconditions.
+
 \begin{equation}
-		P(\omega) := \left\{
+		\text{BT}(\omega) := \left\{
 			\begin{array}{cl}
-					\left( \boxed{\to}, \left(P\left(\overset{\mathfrak{\phi}} \Pi (\omega)\right), P(\omega')\right) \right) \ \text{for any}\  \omega' \in \omega & : \ |\mathfrak{\omega}| \ge 1 \wedge \omega\in\mathfrak{A} \\
-					\left( \boxed{?}, \left(D(\omega),P\left(\overset{\mathfrak{a}} \Pi (\omega)\right)\right) \right) & : \ \omega\in\Phi \\
-					\left( D(\omega), \emptyset \right) & : \ \text{otherwise}
+					\left\langle \boxed{\to}, \left(\text{BT}\left(\overset{\mathfrak{\phi}} \Pi (\omega)\right), \text{BT}(\omega')\right) \right\rangle \ \text{for any}\  \omega' \in \omega & : \ \text{Set}(\omega') \wedge \omega\in\mathfrak{A} \\
+					\left\langle \boxed{?}, \left(\omega,\text{BT}\left(\overset{\mathfrak{a}} \Pi (\omega)\right)\right) \right\rangle & : \ \omega\in\Phi \\
+					\left\langle \omega, () \right\rangle & : \ \text{otherwise}
 			\end{array}
 		\right.
 \end{equation}
+
+The behaviour tree generated by the action ``move ball'' is shown in figure XXXXXXXXXX.
 
 \begin{figure}[tbp]
 \centering
@@ -73,9 +80,9 @@ Let \(\Phi_\mathfrak{a}\in\Phi\subseteq\mathcal{S}\) be the set of all \textit{p
 ]
 									[\(\to\)
 										[?
-											[\textit{Player facing}\\\textit{target (far)?}, rounded corners
+										[\textit{Player facing}\\\textit{target (far)?}, rounded corners
 ]
-											[\texttt{alignFar()}]
+										[\texttt{alignFar()}]
 										]
 										[\texttt{goTowardFar()}]
 									]

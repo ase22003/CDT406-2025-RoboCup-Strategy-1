@@ -18,9 +18,21 @@ tested individually or removed without changing the whole tree. Reactive, on the
 adapts to changes in the surrounding space and can for example change its behaviour based on what is happening. The 
 structure of a BT resembles a directed rooted tree with internal nodes called control flow nodes and leaf nodes called 
 execution nodes. Each connected node are most often called parent and child where the root is the node without parents. 
-The execution of the tree starts with the root that sends signals to its children to start executing. The cild then 
-returns running when the execution is under way and then success or failure depending on whether the process could complete 
-or not. In this way the flow of tasks can be controlled which makes BTs a useful tool when developing an AI system\cite{BTsinAI}. 
+The execution of the tree starts with the root that sends signals with a given frequency to its children to start executing 
+and these signals are called ticks. Depending on what type a child node is, it will work differently. There are typically 
+four types of control flow nodes and two types of execution nodes. Starting with the control flow nodes:
+\begin{itemize}
+    \item \textbf{Sequence}: routs the ticks to its own children (starting from the left) and returns failure or running to its own parent when one of its children returns failure or running. Only when it has passed all its children and every child has returned success, it returns success to its own parent.
+    \item \textbf{Fallback}: (also called selector) works almost like a reversed version of sequence. It routs from left to right and returns success or running as long as one child returns it and returns failure only if all children return failure. 
+    \item \textbf{Parallel}: works differently from the other two, routing the ticks to all its children which means all children execute simultaneusly. The user defines how many children that needs to return succcess for the parallel node to return success to its parent. It returns failure if \textit{N-M+1} children return failure where \textit{M} is the user-defined amount and \textit{N} is the number of cildren.
+    \item \textbf{Decorator}: only has one child. It is used to check that child with special conditions, such as limited execution time, or inverting the status of that child. 
+\end{itemize}
+Continuing with the execution nodes:
+\begin{itemize}
+    \item \textbf{Action}: executes its task and returns running while executing and success or failure when completed.
+    \item \textbf{Condition}: checks a condition and returns either success (if its ture) or failure (if its false) and never returns running. 
+\end{itemize} 
+In this way the flow of tasks can be controlled which makes BTs a useful tool when developing an AI system\cite{BTsinAI}. 
 
 \subsection{Reinforcement Learning}
 Reinforcement learning (RL) is a machine learning

@@ -1,7 +1,7 @@
 \section{Experimentation}
 
 \subsection{rcssserver}
-rcssserver is the official simulation environment for the RoboCup SSL tournament. One of the tasks was to get a working strategy to be compatible with rcssserver so that it could be tested in a real game. The Github repository for rcssserver was cloned and set up in a virtual Linux environment by using Ubuntu. The repository for rcssmonitor was also cloned, which is the interface for watching the games in real time. rcssserver games are run by initially connecting to a server to establish a connection between the user's computer and server. Agent movement in the game is then coordinated by the server that receives commands from the connected computer on what each agent should do. The first step was to write the code for connection establishment, which used a simple UDP connection to communicate. Once that was done, the documentation for rcssserver was read to understand built in functions and commands to control the robots. Firstly, a simple program was made to have the agents move into their starting positions. This program was then modified to produce different scenarios. A go-to-ball program was made where the sole purpose was for a single agent to go to the ball and shoot it towards the goal and repeat that once it scored. Each agent ran on their own thread, sending requests and commands to the servers independently for each agent.
+rcssserver is the official simulation environment for the RoboCup SSL tournament\cite{rcssserverManual}. One of the tasks was to get a working strategy to be compatible with rcssserver so that it could be tested in a real game. The Github repository for rcssserver was cloned and set up in a virtual Linux environment by using Ubuntu. The repository for rcssmonitor was also cloned, which is the interface for watching the games in real time. rcssserver games are run by initially connecting to a server to establish a connection between the user's computer and server. Agent movement in the game is then coordinated by the server that receives commands from the connected computer on what each agent should do. The first step was to write the code for connection establishment, which used a simple UDP connection to communicate. Once that was done, the documentation for rcssserver was read to understand built in functions and commands to control the robots. Firstly, a simple program was made to have the agents move into their starting positions. This program was then modified to produce different scenarios. A go-to-ball program was made where the sole purpose was for a single agent to go to the ball and shoot it towards the goal and repeat that once it scored. Each agent ran on their own thread, sending requests and commands to the servers independently for each agent.
 
 \subsection{Strategy Hierarchy}
 The following hierarchy shows how team behavior could be organized across 5 layers, from high-level strategy down to low-level execution. Each layer builds on the one above it, enabling modular, scalable control.
@@ -39,13 +39,13 @@ Part of the training and testing process was conducted using the Virtual Multi-A
 
 \subsection{Agent Architecture: Single vs Multi-Agent}
 
-There are two considered approaches herein when creating AI for multiple agents: single-agent or a multi-agent architecture.
+There are two considered approaches herein when creating AI for multiple agents: single-agent or a multi-agent architecture\cite{single/multi-agent}.
 
 A \textbf{single-agent} approach would involve one central controller that receives the entire field state and outputs coordinated actions for all robots. This method simplifies coordination and is often easier to implement and train.
 
 A \textbf{multi-agent} approach would assign each robot its own agent, possibly with limited field knowledge. This approach is more realistic and can model decentralized behavior, but introduces complexity in coordination and learning stability.
 
-Our initial focus will likely lean toward the single-agent model to reduce complexity during development. However, we may transition to or experiment with a multi-agent setup depending on performance and scalability needs.
+The initial focus will likely lean toward the single-agent model to reduce complexity during development. However, we may transition to or experiment with a multi-agent setup depending on performance and scalability needs.
 
 \subsection{Reinforcement Learning}
 The main approach for this project involved training a multi-agent reinforcement learning policy for the RoboCup SSL simulation using the VMAS framework, adapted to the RoboCup SSL specifications.  

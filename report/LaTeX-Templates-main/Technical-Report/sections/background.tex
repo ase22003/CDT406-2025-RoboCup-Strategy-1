@@ -27,11 +27,13 @@ four types of control flow nodes and two types of execution nodes. Starting with
     \item \textbf{Parallel}: works differently from the other two, routing the ticks to all its children which means all children execute simultaneusly. The user defines how many children that needs to return succcess for the parallel node to return success to its parent. It returns failure if \textit{N-M+1} children return failure where \textit{M} is the user-defined amount and \textit{N} is the number of cildren.
     \item \textbf{Decorator}: only has one child. It is used to check that child with special conditions, such as limited execution time, or inverting the status of that child. 
 \end{itemize}
+For graphical representation, the sequence node is represented by a "$\rightarrow$" sign, the fallback node by a "?" sign, the parallel node by a "$\rightrightarrows$" sign, all of them with a box around the specific sign. Lastly, the decorator is represented by a rhombus.
 Continuing with the execution nodes:
 \begin{itemize}
     \item \textbf{Action}: executes its task and returns running while executing and success or failure when completed.
     \item \textbf{Condition}: checks a condition and returns either success (if its true) or failure (if its false) and never returns running. 
 \end{itemize} 
+The execution nodes are represented by a rectangle for the action node and a circle for the condition node with the specific action/condition written inside it.
 In this way the flow of tasks can be controlled which makes BTs a useful tool when developing an AI system\cite{BTsinAI}. 
 
 \subsection{Reinforcement Learning}

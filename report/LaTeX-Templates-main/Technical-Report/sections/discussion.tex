@@ -5,34 +5,32 @@
 Although rcssserver helped producing the closest thing we had to a working strategy, the general opinion regarding rcssserver is still negative. A lot of time was spent setting up basic necessities such as the UDP connection to the server, something one would think already existed as a preset for anyone to use and not have to do themselves. Not only did that take time, once that was done we had to look through the extremely limited documentation there was. The information was very vague and left a lot of things up to the readers to figure out themselves. Complications whilst running the games also appeared, as we realized we needed proper thread management to control the flow of the game which also led to time being spent solving that problem. Due to the mentioned problems, we only managed to achieve some basic training and never got to actually apply a fully finished strategy in a real game.
 
 \subsection{Reinforcement Learning}
-The results we achieved with applying PPO to our VMAS Robocup SSL setup were not as expected.
-In this section, We will lay out why we think the results were unsatisfactory and what we could do differently to train our agent to achieve coordinated, cooperative play and, most importantly, score goals and defend effectively.
-
-First and foremost, we would need to create a simulator where the basic mechanics work reliably. In particular, shooting and passing need improvement. Step-by-step debugging showed that these actions often require the robot to be in the exact right position and angle.
-
-Once this is achieved, we also have lots of other ways we could improve our agent.
+The results achieved by applying PPO to our VMAS Robocup SSL setup were not as expected.
+The obtained results were unsatisfactory for several reasons and a lot could be done differently to achieve coordinated, cooperative play and, most importantly, score goals and defend effectively.
+First and foremost, a simulator where the basic mehanics work reliably would need to be created. In particular, shooting and passing need improvement. Step-by-step debugging showed that these actions often require the robot to be in the exact right position and angle.
+Once this is achieved, there are also lots of other ways that could improve the agent.
 
 \subsubsection{Changing our low level skills}
-Our agent selects from hard-coded low level skills. For the agent to behave as intended, these have to be carefully selected and implemented robustly.
+The agent selects from hard-coded low level skills. For the agent to behave as intended, these have to be carefully selected and implemented robustly.
 
 \subsubsection{Reward shaping}
-There is a lot of room for improvement through changing our reward function.
-One aspect we haven't considered yet in our reward function is passing as a reward.
+There is a lot of room for improvement through changing the reward function used in this experiment.
+One aspect that have not been considered in the reward function is inlcuding passing as a reward.
 Previous work shows promise in rewarding successful passes, not being intercepted, and giving a negative reward for intercepted passes
 \cite{SRC2018Team}.
 
 With our centralized approach, we can design the reward function with the state and actions of all players, not just individuals.
 More strategic behaviour could therefore be achieved by maintaining good spacing, occupying key positions, and setting up opportunities for passing and teamwork.
-Rewards have to be considered carefully. Our shaped rewards must still align with our primary objectives:
+Rewards have to be considered carefully. The shaped rewards must still align with our primary objectives:
 \begin{itemize}
     \item Scoring goals
     \item Effective defense
 \end{itemize}
 so that agents do not focus too much on subgoals at the expense of overall team performance.
 
-Due to our inconsistent results stemming from our core simulation issues, we did not include systematic evaluation and visualizations of agent performance.
+Due to inconsistent results stemming from the core simulation issues, systematic evaluation and visualizations of agent performance was not included.
 
 \subsection{Rule-Based System}
-The success of the Rule-Based System can be attributed to its relative simplicity and deterministic nature, which enabled agents to make consistent and effective decisions. Actions were selected based on the agents’ current positions on the field. While this approach may not be optimal when competing against agents powered by more advanced AI techniques, it proved highly effective against opponents that followed a predefined policy of executing the first available action. In these scenarios, the rule-based agents won every match.
+The success of the Rule-Based System can be attributed to its relative simplicity and deterministic nature, which enabled agents to make consistent and effective decisions. Actions were selected based on the agents' current positions on the field. While this approach may not be optimal when competing against agents powered by more advanced AI techniques, it proved highly effective against opponents that followed a predefined policy of executing the first available action. In these scenarios, the rule-based agents won every match.
 
-In future work, once the simulation inconsistencies are addressed, we plan to implement more systematic evaluation of agent performance. This would include tracking and visualizing learning curves, episode rewards, and success rates for key behaviours such as scoring and passing. These evaluation methods are necessary for diagnosing problems and refining progress on agent results.
+In future work, once the simulation inconsistencies are addressed, implementing more systematic evaluation of agent performance would be suitable. This would include tracking and visualizing learning curves, episode rewards, and success rates for key behaviours such as scoring and passing. These evaluation methods are necessary for diagnosing problems and refining progress on agent results.

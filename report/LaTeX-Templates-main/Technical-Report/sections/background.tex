@@ -40,28 +40,9 @@ In this way the flow of tasks can be controlled which makes BTs a useful tool wh
 Genetic algorithm is a machine learning algorithm inspired by the theory of natural selection. The goal of the algorithm is to find the best possible solution to a given problem by following an evolutionary process. A population of possible solutions are tested and evaluated to measure their fitness, which is how good they are at solving the given problem. The best solutions are then brought into the next generation of solutions for further testing. The best solutions get to mate with other fitting solutions to create offspring that will have received traits from their parents. The solutions will also receive mutations to maintain genetic diversity. This entire process is then repeated until a satisfying or the best possible solution is found\cite{BiscontiniGA}.
 
 \subsection{Reinforcement Learning}
-Reinforcement learning (RL) is a machine learning
-algorithm that is used to develop independent decision-making in autonomous agents.
-Agents train by repeating similar tasks over a period of time or repetitions, where they
-learn independently through trial and error. A popular implementation of the learning
-algorithm is Q-learning\cite{JacobMurel1RL}. Q-learning is a model-free RL
-algorithm that is used for training independent agents to make the best decision
-possible in each possible situation. It learns through a trial and error system, where it
-interacts with the environment to find the best method. A state-action-reward system is
-utilized, where the result of an action taken in a state is rewarded or penalized
-depending on the outcome. After a training iteration it stores its Q-values in a Q-table,
-where the values represent the best known expected reward for taking a given action in
-a given state. It updates the table using the Temporal Difference rule
-\[
-Q(S, A) \leftarrow Q(S, A) + \alpha \left( R + \gamma Q(S', A') - Q(S, A) \right).
-\]
-For each state, the agent can either choose to
-explore or to exploit. Using the Epsilon-Greedy Policy (\(\epsilon\)-greedy policy), the agent
-decides whether to take the best current known action (exploit), where the agent picks
-the best action with the highest Q-value based on the probability of \(1-\epsilon\). Else it will try to
-find a new best possible action (explore), where the probability to explore is based
-simply on the \(\epsilon\)-value. This is what allows the model to independently over time find the
-best possible outcomes for each state\cite{GeeksForGeeks1RL}.
+Reinforcement learning or RL for short, is a machine learning algorithm that trains an AI model to independently make its own choices. The model learns to find the optimal policy by interacting with its environment by taking actions to find the best value function for a given policy. Through continuous training iterations it will find the best policy in regards to its value function, and in the end find the best possible solution \cite{ieeeRL1}. (BÖRJA MED STANFORD HÄRIFRÅN)
+There are three main elements and an additional optional one in reinforcement learning. These are policy, reward signal, value function and optionally a model. The policy is the current behavior of the agent. It decides on what action to take depending on the current state. The reward signal, or more generally reward, is the immediate reward that the model is given for performing a certain action. The value of the reward helps the model determine if an action was good or bad. The value function helps the model determine the best choice to take currently based on what its future rewards will look like by taking said action from its current state. The value function calculates what the best possible actions will be, to maximize its reward in the long run. The fourth and optional element is the model, but they are optional. A model-based method is based around predicting the future reward without having visited each state first, and a model-free method is based around the model learning only by itself by exploring through trial and error.
+
 
 \subsection{Deep Reinforcement Learning}
 Given a finite amount of actions and states, Q-learning can, therefore, learn the optimal action to take at each state to ensure the maximum total reward according to some time horizon. In 2013, Mnih\cite{DQN} proposed a variant of Q-learning called Deep Q Network (DQN), in which a neural network is used to approximate the optimal action-value function

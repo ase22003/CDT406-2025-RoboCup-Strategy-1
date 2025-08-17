@@ -1,7 +1,0 @@
-\section{Related Work}
-
-In RoboCup, two common approaches to learning strategies are evolutionary algorithms and reinforcement learning. Early studies applied genetic algorithms (GAs) to evolve team behavior. For example, Okada and Takagi~\cite{okada2008} demonstrated that a multi-objective GA could produce offensive, defensive, and balanced team styles in the RoboCup simulation league. Their work highlights the role of a well-designed fitness function and elitism in preserving high-quality strategies across generations, concepts also used in our GA setup.
-
-On the reinforcement learning side, modern RoboCup teams increasingly use deep reinforcement learning. In the Small-Size League, the ZJUNlict team~\cite{zjunlict2023} explicitly report using Proximal Policy Optimization (PPO) to design decision-making policies, showing that PPO has become a state-of-the-art baseline in this domain. Their approach demonstrates PPO’s ability to handle continuous action spaces and multi-agent dynamics, challenges also present in our SSL scenarios.
-
-Compared to these prior works, our project applies PPO with a centralized critic in simplified SSL scenarios and combines GA with behavior trees to optimize low-level skills.

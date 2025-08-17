@@ -43,17 +43,6 @@ Genetic algorithm is a machine learning algorithm inspired by the theory of natu
 Reinforcement learning or RL for short, is a machine learning algorithm that trains an AI model to independently make its own choices. The model learns to find the optimal policy by interacting with its environment by taking actions to find the best value function for a given policy. Through continuous training iterations it will find the best policy in regards to its value function, and in the end find the best possible solution \cite{ieeeRL1}. (BÖRJA MED STANFORD HÄRIFRÅN)
 There are three main elements and an additional optional one in reinforcement learning. These are policy, reward signal, value function and optionally a model. The policy is the current behavior of the agent. It decides on what action to take depending on the current state. The reward signal, or more generally reward, is the immediate reward that the model is given for performing a certain action. The value of the reward helps the model determine if an action was good or bad. The value function helps the model determine the best choice to take currently based on what its future rewards will look like by taking said action from its current state. The value function calculates what the best possible actions will be, to maximize its reward in the long run. The fourth and optional element is the model, but they are optional. A model-based method is based around predicting the future reward without having visited each state first, and a model-free method is based around the model learning only by itself by exploring through trial and error \cite{SuttonBartoRL2}.
 
-\subsection{Deep Reinforcement Learning}
-Given a finite amount of actions and states, Q-learning can, therefore, learn the optimal action to take at each state to ensure the maximum total reward according to some time horizon. In 2013, Mnih\cite{DQN} proposed a variant of Q-learning called Deep Q Network (DQN), in which a neural network is used to approximate the optimal action-value function
-\[
-    Q^*(s,a)=\underset \pi {\text{max}} \mathbb{E}\left[ r_i+\gamma r_{t+1}+\gamma^2 r_{t+2}+\cdots \,\middle|\, s_t=s,\,a_t=a,\,\pi \right]
-\]
-(which is the maximum sum of rewards \(r_t\) discounted by the time horizon \(\gamma\) at each timestep \(t\), achievable by a behavior policy \(\pi=P(a|s)\), after making an observation \(s\) and taking an action \(a\)), by means of gradient decent of the loss function
-\[
-L_i(\theta_i)=\mathbb{E}_{(s,a,r,s')~U(D)}\left[\left(r+ \gamma \underset {a'} {\text{max}} Q(s',a';\theta^-_i)-Q(s,a;\theta)\right)^2\right]
-,\]
-where the quaternion \((s,a,r,s')\) represents a so-called ``experience replay'' of a past action \(a\) at a certain state \(s\), the received reward \(r\) and the next state\(s'\) following the action. With this method, then -- unlike with regular Q-learning -- an action policy for a continuous state space (like in the scenario of soccer robots in a simulation) can be learned.
-
 \subsection{Proximal Policy Optimization (PPO)}
 Proximal Policy Optimization (PPO) is a model-free reinforcement learning algorithm within the family of policy-gradient techniques. 
 It enhances training stability through policy update clipping to prevent detrimental changes between iterations \cite{Schulman2017PPO}. 

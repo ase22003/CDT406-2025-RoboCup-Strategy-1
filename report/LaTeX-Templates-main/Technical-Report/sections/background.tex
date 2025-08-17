@@ -74,6 +74,15 @@ L_i(\theta_i)=\mathbb{E}_{(s,a,r,s')~U(D)}\left[\left(r+ \gamma \underset {a'} {
 ,\]
 where the quaternion \((s,a,r,s')\) represents a so-called ``experience replay'' of a past action \(a\) at a certain state \(s\), the received reward \(r\) and the next state\(s'\) following the action. With this method, then -- unlike with regular Q-learning -- an action policy for a continuous state space (like in the scenario of soccer robots in a simulation) can be learned.
 
+\subsection{Proximal Policy Optimization (PPO)}
+Proximal Policy Optimization (PPO) is a model-free reinforcement learning algorithm within the family of policy-gradient techniques. 
+It enhances training stability through policy update clipping to prevent detrimental changes between iterations \cite{Schulman2017PPO}. 
+PPO is broadly considered a simple, yet effective baseline for continuous control and multi-agent environments. 
+As outlined in OpenAI's Spinning Up guide, PPO aims to offer a "reliable and stable improvement step for policy gradient methods" \cite{OpenAISpinningUp}. 
+While PPO was originally proposed as a single-agent method, it has been widely adapted for multi-agent reinforcement learning. 
+In particular, using a centralized critic with decentralized policies (often referred to as MAPPO) has become a standard approach in domains such as robotics and multi-agent games \cite{Yu2021MAPPO}. 
+Its efficiency, robustness, and ease of use make PPO an attractive candidate for RoboCup SSL, wherein agents are required to act in continuous spaces and coordinate in dynamic multi-agent settings.
+
 \subsection{Other teams}
 The CMDragons team won all six games they played during the RoboCup 2015 competition. In this paper they 
 describe how they used simpler algorithms to divide their robots into defense and offense subteams to suit the state 

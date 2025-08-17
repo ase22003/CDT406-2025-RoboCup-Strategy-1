@@ -1,12 +1,17 @@
 \section{Method}
+
+\subsection{Simulation environments}
+
+\subsubsection{rcssserver}
+
+\subsubsection{VMAS}
+The VMAS framework was adapted to SSL Division~B (field dimensions, ball physics, out-of-bounds and goal conditions). Each side had up to six agents. Agents could execute high-level actions (move, pass, shoot, dribble) which were translated to continuous low-level controls (e.g., dribble direction/speed, shot power, pass target scores).
+
 \subsection{Reinforcement Learning}
 \label{subsec:rl-method}
 
 \subsubsection{Objective}
 Evaluate whether PPO can learn coordinated attacking and defending behaviours in RoboCup SSL by training on simplified scenarios that reduce reward sparsity (see Background, PPO \cite{Schulman2017PPO,Yu2021MAPPO}).
-
-\subsubsection{Simulation Environment}
-We used the VMAS framework adapted to SSL Division~B (field dimensions, ball physics, out-of-bounds and goal conditions). Each side had up to six agents. Agents executed high-level actions (move, pass, shoot, dribble) which were translated to continuous low-level controls (e.g., dribble direction/speed, shot power, pass target scores).
 
 \subsubsection{Tasks / Scenarios}
 To avoid sparse rewards from full matches, training used short, focused scenarios:

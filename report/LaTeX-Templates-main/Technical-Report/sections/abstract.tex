@@ -1,12 +1,8 @@
 \begin{abstract}
-The RoboCup is a selection of leagues where teams play against eachother with football-playing robots. 
-This tournament is an initative taken to advance the scientific field of AI and robotics. For this paper, 
-two methods will be explored with the aim to create a working strategy and each method will be tested 
-using its own simulation environment. One of the methods used was a proximal policy optimization (PPO) 
-which is a form of reinforcement learning (RL) and the goal was to train agents with this method in 
-multiple scenarios. In the other method used, a behaviour tree (BT) combined with genetic algorithm (GA) 
-was created. The BT controlled what low-level skills the agent used and the GA was used to tune the 
-parameters of those skills. This experiment showed that BT together with GA gave a slightly better 
-result than PPO. For the future of this experiment, further refinement of the simulation environments 
-is required and it would also be suitable to test other AI models to find the most sufficient one.
+The RoboCup is a set of leagues in which teams of football-playing robots compete, a project with the goal of promoting the scientific disciplines of AI and robotics.
+This tournament is an initative taken to advance the scientific field of AI and robotics. For this paper, two methods will be explored with the aim to create a working strategy and each method will be tested using its own simulation environment.
+The first method utilized Proximal Policy Optimization (PPO) in a multi-agent setup with a centralized critic, similar to MAPPO, to help agents learn synchronized attacking and defending policies in simplified RoboCup SSL scenarios.
+The second method incorporated a genetic algorithm (GA) with a behavior tree (BT), where the BT controlled the low-level skills and the GA optimized their parameters.
+BT+GA method achieved more stable performance under the tested conditions compared to PPO.
+As future work, enhancing the stability of the simulation environments, fine-tuning low-level skills, and investigating other AI approaches are recognized as important steps in the direction of more successful strategies.
 \end{abstract}

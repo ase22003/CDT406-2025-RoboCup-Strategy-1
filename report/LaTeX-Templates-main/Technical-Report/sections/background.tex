@@ -83,6 +83,9 @@ While PPO was originally proposed as a single-agent method, it has been widely a
 In particular, using a centralized critic with decentralized policies (often referred to as MAPPO) has become a standard approach in domains such as robotics and multi-agent games \cite{Yu2021MAPPO}. 
 Its efficiency, robustness, and ease of use make PPO an attractive candidate for RoboCup SSL, wherein agents are required to act in continuous spaces and coordinate in dynamic multi-agent settings.
 
+\subsection{VMAS}
+VMAS (Vectorized Multi-Agent Simulator) is a framework designed for benchmarking multi-agent reinforcement learning. It features a fully differentiable, vectorized 2D physics engine implemented in PyTorch and supports the development of custom multi-agent scenarios \cite{bettini2022vmas}. In this project, a new simulation model was created to replicate a football match in the B Division of the Small Size League. The virtual environment included a field and agent-based robots, all scaled to real-world dimensions. Core game mechanics—such as out-of-bounds, goal kicks, and corner kicks—were implemented. Additionally, fundamental skills, including shooting, passing, positioning, dribbling, creating space, and throw-ins, were incorporated.
+
 \subsection{Other teams}
 The CMDragons team won all six games they played during the RoboCup 2015 competition. In this paper they 
 describe how they used simpler algorithms to divide their robots into defense and offense subteams to suit the state 
